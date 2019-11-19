@@ -33,7 +33,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
     fid.write("import numpy as np\n\n\n")
 
     # define constant
-    fid.write('def eqdiff(y, t, Ga, Gm, Cm, ve, d, l, Vr):\n')
+    fid.write('def eqdiff(t, y, Ga, Gm, Cm, ve, d, l, Vr):\n')
     fid.write('\n')
     fid.write('    # Parameters\n')
     fid.write('    PNa = 8*1e-3*1e-2 # (m/s)\n')
@@ -181,7 +181,7 @@ def define_stimulus(kind, magnitude, tp, node_num, length, rhoe=None, tp1=None):
         inod = np.arange((node_num - 1) / 2, (node_num - 1) / 2 + 6, dtype=int)
         leg = ['node #' + str(k) for k in inod]
 
-    elif kind.loser() == 'sine':
+    elif kind.lower() == 'sine':
         # Electrical stimulation
         ve = lambda t, k: (t <= 2*tp) * rhoe * magnitude * np.sin(np.pi / tp * t) / (4 * np.pi * r[k])
         # plot variables
@@ -194,9 +194,10 @@ def define_stimulus(kind, magnitude, tp, node_num, length, rhoe=None, tp1=None):
 
 
 if __name__ == "__main__":
-    from scipy.integrate import odeint
+    from scipy.integrate import ode
     import matplotlib.pylab as plt
     from timeit import default_timer as timer
+    plt.ion()
 
     # FIXED PARAMETERS
     D = 20e-6           # fiber diamater
@@ -221,13 +222,17 @@ if __name__ == "__main__":
     write_ode(N, nlin1, nlin2)
     from eqdiff import eqdiff
 
+    # callback to save solution at each iteration of the integration
+    def solout(t, y):
+        time.append(t)
+        sol.append(y.copy())
+
     # define stimulus
     kind = 'monoph'
-    Tp = 0.016
+    Tp = 100e-6
     NTp = 10
 
     # define simulation time range and initial condition
-    t = np.linspace(0, NTp * Tp, 500)
     icond = [0] * N + [0.0005, 0.8249, 0.0268, 0.0049] * (nlin2 - nlin1 + 1)
 
     # Identification of bound values
@@ -240,9 +245,26 @@ if __name__ == "__main__":
     print('------------------------------------------------------')
     ts = timer()
     while flag:
+        # define stumulus
         Isim = -Isup
         ve, ktime, umes_time, inod, leg = define_stimulus(kind, Isim, Tp, N, L, rhoe)
-        x = odeint(eqdiff, icond, t, args=(Ga, Gm, Cm, ve, d, l, Vr))
+
+        # initialize solution variable
+        time = []
+        sol = []
+        # define integrator
+        r = ode(eqdiff).set_integrator('dopri5')
+        # set initial conditions
+        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+        # store solution at each iteration step
+        r.set_solout(solout)
+        # integrate
+        r.integrate(NTp * Tp)
+        # get complete solution
+        t = np.array(time)
+        x = np.array(sol)
+
+        # get number of nodes with voltage > 80 mV
         N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
         if N80 > 3:
             Isim = (Isub + Isup) / 2
@@ -253,6 +275,7 @@ if __name__ == "__main__":
     te = timer()
     print('...done. (sub, sup) = ({},{})'.format(Isub, Isup))
     print('\n elapsed time: {:3f} ms'.format(te-ts))
+
 
     # Identification of the thresholds
     toll = 0.1
@@ -265,9 +288,25 @@ if __name__ == "__main__":
     print('------------------------------------------------------')
     ts = timer()
     while (err > toll):
+        # define stumulus
         ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, Tp, N, L, rhoe)
-        # ve = lambda t, k: (t <= Tp) * rhoe * Inew / (4 * np.pi * r[k])
-        x = odeint(eqdiff, icond, t, args=(Ga, Gm, Cm, ve, d, l, Vr))
+
+        # initialize solution variable
+        time = []
+        sol = []
+        # define integrator
+        r = ode(eqdiff).set_integrator('dopri5')
+        # set initial conditions
+        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+        # store solution at each iteration step
+        r.set_solout(solout)
+        # integrate
+        r.integrate(NTp * Tp)
+        # get complete solution
+        t = np.array(time)
+        x = np.array(sol)
+
+        # get number of nodes with voltage > 80 mV
         N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
         if N80 > 3:
             Isup = -Inew
@@ -283,10 +322,24 @@ if __name__ == "__main__":
     print('\n elapsed time: {:3f} ms'.format(te - ts))
 
     # one shot simulation
+    # -------------------
+    # define stumulus
     ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, Tp, N, L, rhoe)
 
-    # solve differential equation
-    sol = odeint(eqdiff, icond, t, args=(Ga, Gm, Cm, ve, d, l, Vr))
+    # initialize solution variable
+    time = []
+    sol = []
+    # define integrator
+    r = ode(eqdiff).set_integrator('dopri5')
+    # set initial conditions
+    r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+    # store solution at each iteration step
+    r.set_solout(solout)
+    # integrate
+    r.integrate(NTp * Tp)
+    # get complete solution
+    t = np.array(time)
+    sol = np.array(sol)
 
     # print max. values
     vmax = sol[:, 0:N].max()
@@ -307,7 +360,7 @@ if __name__ == "__main__":
     else:
         print('action potential not started: {} nodes with V > 80 mV'.format(N80))
 
-    # final plots
+    # plot stimulus
     plt.figure(facecolor='w')
     plt.plot(t * ktime, -ve(t, inod[0]) * 1e3, linewidth=2)
     plt.xlabel('time ' + umes_time,fontsize=16)
@@ -316,7 +369,7 @@ if __name__ == "__main__":
     plt.yticks(fontsize=16)
     plt.tight_layout()
 
-
+    # plot nodes
     plt.figure(facecolor='w')
     plt.plot(t * ktime, sol[:, inod] * 1e3, linewidth=2)
     plt.xlabel('time ' + umes_time, fontsize=16)
@@ -325,4 +378,3 @@ if __name__ == "__main__":
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     plt.tight_layout()
-    #plt.show()
