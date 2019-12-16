@@ -150,7 +150,7 @@ def define_stimulus(kind, magnitude, tp, node_num, length, rhoe=None, tp1=None):
 
     if kind.lower() == 'efield':
         vext_norm = length * np.arange(node_num - 1, -1, -1)
-        ve = lambda t, k: (t <= Tp) * magnitude * vext_norm[k]
+        ve = lambda t, k: (t <= tp) * magnitude * vext_norm[k]
         # plot variables
         ktime = 1e3
         umes_time = '(ms)'
@@ -165,7 +165,7 @@ def define_stimulus(kind, magnitude, tp, node_num, length, rhoe=None, tp1=None):
 
     if kind.lower() == 'monoph':
         # Electrical stimulation
-        ve = lambda t, k: (t <= Tp) * rhoe * magnitude / (4 * np.pi * r[k])
+        ve = lambda t, k: (t <= tp) * rhoe * magnitude / (4 * np.pi * r[k])
         # plot variables
         ktime = 1e6
         umes_time = '($\mu$s)'
@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     # define stimulus
     kind = 'monoph'
-    Tp = 100e-6
+    tp = 100e-6
     NTp = 10
 
     # define simulation time range and initial condition
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     while flag:
         # define stumulus
         Isim = -Isup
-        ve, ktime, umes_time, inod, leg = define_stimulus(kind, Isim, Tp, N, L, rhoe)
+        ve, ktime, umes_time, inod, leg = define_stimulus(kind, Isim, tp, N, L, rhoe)
 
         # initialize solution variable
         time = []
@@ -259,7 +259,7 @@ if __name__ == "__main__":
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
-        r.integrate(NTp * Tp)
+        r.integrate(NTp * tp)
         # get complete solution
         t = np.array(time)
         x = np.array(sol)
@@ -289,7 +289,7 @@ if __name__ == "__main__":
     ts = timer()
     while (err > toll):
         # define stumulus
-        ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, Tp, N, L, rhoe)
+        ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, tp, N, L, rhoe)
 
         # initialize solution variable
         time = []
@@ -301,7 +301,7 @@ if __name__ == "__main__":
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
-        r.integrate(NTp * Tp)
+        r.integrate(NTp * tp)
         # get complete solution
         t = np.array(time)
         x = np.array(sol)
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     # one shot simulation
     # -------------------
     # define stumulus
-    ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, Tp, N, L, rhoe)
+    ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, tp, N, L, rhoe)
 
     # initialize solution variable
     time = []
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     # store solution at each iteration step
     r.set_solout(solout)
     # integrate
-    r.integrate(NTp * Tp)
+    r.integrate(NTp * tp)
     # get complete solution
     t = np.array(time)
     sol = np.array(sol)
@@ -348,7 +348,7 @@ if __name__ == "__main__":
     print('\n------------------------------------------------------')
     print('Stimulus: ' + kind)
     print('Strength: {}'.format(Inew))
-    print('Duration: {}'.format(Tp*ktime) + umes_time.replace('$','').replace('\\','').replace('mu','u'))
+    print('Duration: {}'.format(tp * ktime) + umes_time.replace('$', '').replace('\\', '').replace('mu', 'u'))
     print('max. membrane voltage: {:.3f} mV'.format(vmax*1e3))
     print('max. reached at: {:.3f} '.format(tmax * ktime) + umes_time.replace('$','').replace('\\','').replace('mu','u'))
     print('max. stimulation at node number: {} (0 = first node)'.format(j))
