@@ -109,37 +109,41 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
     fid.close()
 
 
-def define_stimulus(kind, magnitude, tp, node_num, length, rhoe=None, tp1=None):
+def define_stimulus(kind, **kwargs):
     """
     'define_stimulus' generates the lambda function to estimate the external nodal voltages
 
     Parameters
     ----------
     kind (str):
-        define the stimulus: 'monoph', 'biph', 'sine', 'efield'
-    magnitude (float):
-        magnitude of the stimulus
-    tp (float):
-        duration of the stimulus
-    node_num (int):
-        number of node in the fiber
-    length (float):
-        length of the fiber
-    rhoe (float):
-        medium resistivity
-    tp1 (float):
-        required only for 'biph' stimulus
-        tp1 --> high part of the stimulus
-        (consequently: tp - tp1 --> low part of the stimulus)
+        define the stimulus: 'efield', 'monoph', 'biph', 'sine'
+        'efield' requires: length, node_num, tp, magnitude
+        'monoph' requires: length, node_num, tp, magnitude, rhoe
+        'biph'   requires: length, node_num, tp, magnitude, rhoe, tp1
+        'sine'   requires: length, node_num, tp, magnitude, rhoe, freq
+
+    The following parameters have to be passed through **kwargs:
+        magnitude (float):
+            magnitude of the stimulus
+        tp (float):
+            duration of the stimulus
+        node_num (int):
+            number of node in the fiber
+        length (float):
+            length of the fiber
+        rhoe (float):
+            medium resistivity
+        tp1 (float):
+            required only for 'biph' stimulus
+            tp1 --> high part of the stimulus
+            (consequently: tp - tp1 --> low part of the stimulus)
+        freq (float):
+            frequency of the sine wave
 
     Returns
     -------
     ve (function):
         lambda function to estimate the external nodal voltages
-    ktime (double):
-        coefficient to make the time more readable
-    umes_time (str):
-        unit of measurement of the time (accorting to ktime)
     inod (ndarray):
         index of node to be plotted
         (the ones where the action potential is originated)
@@ -149,48 +153,40 @@ def define_stimulus(kind, magnitude, tp, node_num, length, rhoe=None, tp1=None):
     """
 
     if kind.lower() == 'efield':
-        vext_norm = length * np.arange(node_num - 1, -1, -1)
-        ve = lambda t, k: (t <= tp) * magnitude * vext_norm[k]
+        vext_norm = kwargs['length'] * np.arange(kwargs['node_num'] - 1, -1, -1)
+        ve = lambda t, k: (t <= kwargs['tp']) * kwargs['magnitude'] * vext_norm[k]
         # plot variables
-        ktime = 1e3
-        umes_time = '(ms)'
         inod = np.arange(0, 6, dtype=int)
         leg = ['node #' + str(k) for k in inod]
 
     else:
         # Stimulation via electrode in central position
         ye = 2e-3
-        x = (np.linspace(0, node_num - 1, node_num) - (node_num - 1) / 2) * length
+        x = (np.linspace(0, kwargs['node_num'] - 1, kwargs['node_num']) - (kwargs['node_num'] - 1) / 2) * kwargs['length']
         r = np.sqrt(x ** 2 + ye ** 2)
 
     if kind.lower() == 'monoph':
         # Electrical stimulation
-        ve = lambda t, k: (t <= tp) * rhoe * magnitude / (4 * np.pi * r[k])
+        ve = lambda t, k: (t <= kwargs['tp']) * kwargs['rhoe'] * kwargs['magnitude'] / (4 * np.pi * r[k])
         # plot variables
-        ktime = 1e6
-        umes_time = '($\mu$s)'
-        inod = np.arange((node_num - 1) / 2, (node_num - 1) / 2 + 6, dtype=int)
+        inod = np.arange((kwargs['node_num'] - 1) / 2, (kwargs['node_num'] - 1) / 2 + 6, dtype=int)
         leg = ['node #' + str(k) for k in inod]
 
     elif kind.lower() == 'biph':
         # Electrical stimulation
-        ve = lambda t, k: (rhoe * magnitude) / (4 * np.pi) * ((t <= tp1) / r[k] - ((t > tp1) & (t <= tp)) / r[k])
+        ve = lambda t, k: (kwargs['rhoe'] * kwargs['magnitude']) / (4 * np.pi) * ((t <= kwargs['tp1']) / r[k] - ((t > kwargs['tp1']) & (t <= kwargs['tp'])) / r[k])
         # plot variables
-        ktime = 1e6
-        umes_time = '($\mu$s)'
-        inod = np.arange((node_num - 1) / 2, (node_num - 1) / 2 + 6, dtype=int)
+        inod = np.arange((kwargs['node_num'] - 1) / 2, (kwargs['node_num'] - 1) / 2 + 6, dtype=int)
         leg = ['node #' + str(k) for k in inod]
 
     elif kind.lower() == 'sine':
         # Electrical stimulation
-        ve = lambda t, k: (t <= 2*tp) * rhoe * magnitude * np.sin(np.pi / tp * t) / (4 * np.pi * r[k])
+        ve = lambda t, k: (t <= kwargs['tp']) * kwargs['rhoe'] * kwargs['magnitude'] * np.sin(2 * np.pi * kwargs['freq'] * t) / (4 * np.pi * r[k])
         # plot variables
-        ktime = 1e6
-        umes_time = '($\mu$s)'
-        inod = np.arange((node_num - 1) / 2, (node_num - 1) / 2 + 6, dtype=int)
+        inod = np.arange((kwargs['node_num'] - 1) / 2, (kwargs['node_num'] - 1) / 2 + 6, dtype=int)
         leg = ['node #' + str(k) for k in inod]
 
-    return ve, ktime, umes_time, inod, leg
+    return ve, inod, leg
 
 
 if __name__ == "__main__":
@@ -228,9 +224,34 @@ if __name__ == "__main__":
         sol.append(y.copy())
 
     # define stimulus
-    kind = 'monoph'
-    tp = 100e-6
-    NTp = 10
+    kind = 'sine'
+    if kind == 'monoph':
+        tp = 100e-6
+        NTp = 10
+        param = {'length':L, 'node_num':N, 'tp':tp, 'magnitude':0, 'rhoe':rhoe}
+        ktime = 1e6
+        umes_time = "($\mu$s)"
+    elif kind == 'biph':
+        tp = 100e-6
+        tp1 = 50e-6
+        NTp = 10
+        param = {'length': L, 'node_num': N, 'tp': tp, 'magnitude': 0, 'rhoe': rhoe, 'tp1':tp1}
+        ktime = 1e6
+        umes_time = "($\mu$s)"
+    elif kind == 'efield':
+        tp = 100e-6
+        NTp = 10
+        param = {'length': L, 'node_num': N, 'tp': tp, 'magnitude': 0}
+        ktime = 1e6
+        umes_time = "($\mu$s)"
+    elif kind == 'sine':
+        tp = 20e-6
+        NTp = 25
+        param = {'length': L, 'node_num': N, 'tp': tp, 'magnitude': 0, 'rhoe':rhoe, 'freq':(1/tp)}
+        ktime = 1e6
+        umes_time = "($\mu$s)"
+
+
 
     # define simulation time range and initial condition
     icond = [0] * N + [0.0005, 0.8249, 0.0268, 0.0049] * (nlin2 - nlin1 + 1)
@@ -246,8 +267,8 @@ if __name__ == "__main__":
     ts = timer()
     while flag:
         # define stumulus
-        Isim = -Isup
-        ve, ktime, umes_time, inod, leg = define_stimulus(kind, Isim, tp, N, L, rhoe)
+        param['magnitude'] = -Isup
+        ve, inod, leg = define_stimulus(kind, **param)
 
         # initialize solution variable
         time = []
@@ -278,7 +299,7 @@ if __name__ == "__main__":
 
 
     # Identification of the thresholds
-    toll = 0.1
+    toll = 0.5
     err = 100
     Iold = -Isim
     Inew = -Isim
@@ -289,7 +310,8 @@ if __name__ == "__main__":
     ts = timer()
     while (err > toll):
         # define stumulus
-        ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, tp, N, L, rhoe)
+        param['magnitude'] = Inew
+        ve, inod, leg = define_stimulus(kind, **param)
 
         # initialize solution variable
         time = []
@@ -324,7 +346,8 @@ if __name__ == "__main__":
     # one shot simulation
     # -------------------
     # define stumulus
-    ve, ktime, umes_time, inod, leg = define_stimulus(kind, Inew, tp, N, L, rhoe)
+    param['magnitude'] = Inew
+    ve, inod, leg = define_stimulus(kind, **param)
 
     # initialize solution variable
     time = []
