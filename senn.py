@@ -206,8 +206,8 @@ def find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value=
     NTp (float): number of 'tp'
     tp (float): pulse duration
     icond (list): initial conditions of the ODE
-    sub_value (float): initial guess of sub-threshold value
-    sup_value (float): initial guess of supra-threshold value
+    sub_value (float): initial guess of sub-threshold value (default is 0)
+    sup_value (float): initial guess of supra-threshold value (default is 0.1e-3)
 
     Returns
     -------
@@ -258,6 +258,88 @@ def find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value=
     print('...done. (sub, sup) = ({},{})'.format(sub_value, sup_value))
     print('\n elapsed time: {:3f} ms'.format(te - ts))
     return sub_value, sup_value
+
+
+def find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value, sup_value, toll=0.5):
+    """
+    'find_threshold' computes the threshold up to a given tolerance.
+
+    Parameters
+    ----------
+    Ga (float): internodal conductance
+    Gm (float): transmembrane conductance
+    Cm (float): transmembrane capacitance
+    d (float): axon diameter
+    l (float): nodal gap width
+    Vr (float): rest potential
+    kind (str): kind of stimulus
+    param (dict): parameters of the stimulus
+    NTp (float): number of 'tp'
+    tp (float): pulse duration
+    icond (list): initial conditions of the ODE
+    sub_value (float): sub-threshold value
+    sup_value (float): supra-threshold value
+    toll (float): tolerance to identify the threshold (default is 0.5 %)
+
+    Returns
+    -------
+    threshold (float): threshold value up to a given tolerance 'toll'
+
+    """
+    # Identification of the thresholds
+    err = 100
+    sim_value = 0.5 * (sub_value + sup_value)
+    old_value = -sim_value
+    new_value = -sim_value
+    cnt = 1
+
+    # callback to save solution at each iteration of the integration
+    def solout(t, y):
+        time.append(t)
+        sol.append(y.copy())
+
+    print('\n------------------------------------------------------')
+    print('Looking for threshold...')
+    print('------------------------------------------------------')
+    ts = timer()
+    while (err > toll):
+        # define stumulus
+        param['magnitude'] = new_value
+        ve, _, _ = define_stimulus(kind, **param)
+
+        # initialize solution variable
+        time = []
+        sol = []
+        # define integrator
+        r = ode(eqdiff).set_integrator('dopri5')
+        # set initial conditions
+        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+        # store solution at each iteration step
+        r.set_solout(solout)
+        # integrate
+        r.integrate(NTp * tp)
+        # get complete solution
+        x = np.array(sol)
+
+        # get number of nodes with voltage > 80 mV
+        N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
+        if N80 > 3:
+            sup_value = -new_value
+        else:
+            sub_value = -new_value
+
+        old_value = -new_value
+        new_value = -(sub_value + sup_value) / 2
+        err = np.abs(new_value + old_value) / old_value * 100
+        print('{}) I = {:.6f} A \t Err = {} % \t N80 = {}'.format(cnt, old_value, err, N80))
+        cnt += 1
+
+    te = timer()
+    print('\n elapsed time: {:3f} ms'.format(te - ts))
+
+    threshold = min([new_value, old_value])
+    return threshold
+
 
 
 if __name__ == "__main__":
@@ -330,55 +412,12 @@ if __name__ == "__main__":
     Isub, Isup = find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond)
 
     # Identification of the thresholds
-    toll = 0.5
-    err = 100
-    Isim = 0.5 * (Isub + Isup)
-    Iold = -Isim
-    Inew = -Isim
-    cnt = 1
-    print('\n------------------------------------------------------')
-    print('Looking for threshold...')
-    print('------------------------------------------------------')
-    ts = timer()
-    while (err > toll):
-        # define stumulus
-        param['magnitude'] = Inew
-        ve, inod, leg = define_stimulus(kind, **param)
-
-        # initialize solution variable
-        time = []
-        sol = []
-        # define integrator
-        r = ode(eqdiff).set_integrator('dopri5')
-        # set initial conditions
-        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
-        # store solution at each iteration step
-        r.set_solout(solout)
-        # integrate
-        r.integrate(NTp * tp)
-        # get complete solution
-        t = np.array(time)
-        x = np.array(sol)
-
-        # get number of nodes with voltage > 80 mV
-        N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
-        if N80 > 3:
-            Isup = -Inew
-        else:
-            Isub = -Inew
-
-        Iold = -Inew
-        Inew = -(Isub + Isup) / 2
-        err = np.abs(Inew + Iold) / Iold * 100
-        print('{}) I = {:.6f} A \t Err = {} % \t N80 = {}'.format(cnt, Iold, err, N80))
-        cnt += 1
-    te = timer()
-    print('\n elapsed time: {:3f} ms'.format(te - ts))
+    It = find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, Isub, Isup, toll=0.5)
 
     # one shot simulation
     # -------------------
     # define stumulus
-    param['magnitude'] = Inew
+    param['magnitude'] = It
     ve, inod, leg = define_stimulus(kind, **param)
 
     # initialize solution variable
@@ -402,7 +441,7 @@ if __name__ == "__main__":
     tmax = t[i]
     print('\n------------------------------------------------------')
     print('Stimulus: ' + kind)
-    print('Strength: {}'.format(Inew))
+    print('Strength: {}'.format(It))
     print('Duration: {}'.format(tp * ktime) + umes_time.replace('$', '').replace('\\', '').replace('mu', 'u'))
     print('max. membrane voltage: {:.3f} mV'.format(vmax*1e3))
     print('max. reached at: {:.3f} '.format(tmax * ktime) + umes_time.replace('$','').replace('\\','').replace('mu','u'))
