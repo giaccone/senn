@@ -189,6 +189,77 @@ def define_stimulus(kind, **kwargs):
     return ve, inod, leg
 
 
+def find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1e-3):
+    """
+    'find_sub_supra' computes boundary values for the bisection method (used to identify the threeshold)
+
+    Parameters
+    ----------
+    Ga (float): internodal conductance
+    Gm (float): transmembrane conductance
+    Cm (float): transmembrane capacitance
+    d (float): axon diameter
+    l (float): nodal gap width
+    Vr (float): rest potential
+    kind (str): kind of stimulus
+    param (dict): parameters of the stimulus
+    NTp (float): number of 'tp'
+    tp (float): pulse duration
+    icond (list): initial conditions of the ODE
+    sub_value (float): initial guess of sub-threshold value
+    sup_value (float): initial guess of supra-threshold value
+
+    Returns
+    -------
+    sub_value (float): sub-threshold value
+    sup_value (float): supra-threshold value
+
+    """
+
+    # Identification of bound values
+    flag = 1
+
+    print('\n------------------------------------------------------')
+    print('Identifying sub and supra threshold values...')
+    print('------------------------------------------------------')
+    ts = timer()
+    while flag:
+        # define stumulus
+        param['magnitude'] = -sup_value
+        voltage_ext, _, _ = define_stimulus(kind, **param)
+
+        # callback to save solution at each iteration of the integration
+        def solout(t, y):
+            time.append(t)
+            sol.append(y.copy())
+
+        # initialize solution variable
+        time = []
+        sol = []
+        # define integrator
+        r = ode(eqdiff).set_integrator('dopri5')
+        # set initial conditions
+        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, voltage_ext, d, l, Vr)
+        # store solution at each iteration step
+        r.set_solout(solout)
+        # integrate
+        r.integrate(NTp * tp)
+        # get complete solution
+        x = np.array(sol)
+
+        # get number of nodes with voltage > 80 mV
+        N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
+        if N80 > 3:
+            flag = 0
+        else:
+            sub_value = 1*sup_value
+            sup_value = 2 * sup_value
+    te = timer()
+    print('...done. (sub, sup) = ({},{})'.format(sub_value, sup_value))
+    print('\n elapsed time: {:3f} ms'.format(te - ts))
+    return sub_value, sup_value
+
+
 if __name__ == "__main__":
     from scipy.integrate import ode
     import matplotlib.pylab as plt
@@ -252,55 +323,16 @@ if __name__ == "__main__":
         umes_time = "($\mu$s)"
 
 
-
-    # define simulation time range and initial condition
+    # define initial condition
     icond = [0] * N + [0.0005, 0.8249, 0.0268, 0.0049] * (nlin2 - nlin1 + 1)
 
-    # Identification of bound values
-    Isub = 0
-    Isup = 0.1e-3
-    flag = 1
-
-    print('\n------------------------------------------------------')
-    print('Identifying sub and supra threshold values...')
-    print('------------------------------------------------------')
-    ts = timer()
-    while flag:
-        # define stumulus
-        param['magnitude'] = -Isup
-        ve, inod, leg = define_stimulus(kind, **param)
-
-        # initialize solution variable
-        time = []
-        sol = []
-        # define integrator
-        r = ode(eqdiff).set_integrator('dopri5')
-        # set initial conditions
-        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
-        # store solution at each iteration step
-        r.set_solout(solout)
-        # integrate
-        r.integrate(NTp * tp)
-        # get complete solution
-        t = np.array(time)
-        x = np.array(sol)
-
-        # get number of nodes with voltage > 80 mV
-        N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
-        if N80 > 3:
-            Isim = (Isub + Isup) / 2
-            flag = 0
-        else:
-            Isub = Isup
-            Isup = 2 * Isup
-    te = timer()
-    print('...done. (sub, sup) = ({},{})'.format(Isub, Isup))
-    print('\n elapsed time: {:3f} ms'.format(te-ts))
-
+    # Identification of boundaries for bisection method
+    Isub, Isup = find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond)
 
     # Identification of the thresholds
     toll = 0.5
     err = 100
+    Isim = 0.5 * (Isub + Isup)
     Iold = -Isim
     Inew = -Isim
     cnt = 1
