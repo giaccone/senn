@@ -341,6 +341,56 @@ def find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value,
     return threshold
 
 
+def evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond):
+    """
+    'evaluate_senn' computes the solution of the SENN model for a given stimulus
+
+    Parameters
+    ----------
+    Ga (float): internodal conductance
+    Gm (float): transmembrane conductance
+    Cm (float): transmembrane capacitance
+    d (float): axon diameter
+    l (float): nodal gap width
+    Vr (float): rest potential
+    kind (str): kind of stimulus
+    param (dict): parameters of the stimulus
+    NTp (float): number of 'tp'
+    tp (float): pulse duration
+    icond (list): initial conditions of the ODE
+
+    Returns
+    -------
+    t (ndarray): time values at which the solution is defined
+    sol (ndarray):  solution
+
+    """
+
+    # define stimulus
+    ve, inod, leg = define_stimulus(kind, **param)
+
+    # callback to save solution at each iteration of the integration
+    def solout(t, y):
+        time.append(t)
+        sol.append(y.copy())
+
+    # initialize solution variable
+    time = []
+    sol = []
+    # define integrator
+    r = ode(eqdiff).set_integrator('dopri5')
+    # set initial conditions
+    r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+    # store solution at each iteration step
+    r.set_solout(solout)
+    # integrate
+    r.integrate(NTp * tp)
+    # get complete solution
+    t = np.array(time)
+    sol = np.array(sol)
+
+    return t, sol, ve, inod, leg
+
 
 if __name__ == "__main__":
     from scipy.integrate import ode
@@ -371,11 +421,6 @@ if __name__ == "__main__":
     write_ode(N, nlin1, nlin2)
     from eqdiff import eqdiff
 
-    # callback to save solution at each iteration of the integration
-    def solout(t, y):
-        time.append(t)
-        sol.append(y.copy())
-
     # define stimulus
     kind = 'sine'
     if kind == 'monoph':
@@ -404,7 +449,6 @@ if __name__ == "__main__":
         ktime = 1e6
         umes_time = "($\mu$s)"
 
-
     # define initial condition
     icond = [0] * N + [0.0005, 0.8249, 0.0268, 0.0049] * (nlin2 - nlin1 + 1)
 
@@ -415,25 +459,8 @@ if __name__ == "__main__":
     It = find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, Isub, Isup, toll=0.5)
 
     # one shot simulation
-    # -------------------
-    # define stumulus
     param['magnitude'] = It
-    ve, inod, leg = define_stimulus(kind, **param)
-
-    # initialize solution variable
-    time = []
-    sol = []
-    # define integrator
-    r = ode(eqdiff).set_integrator('dopri5')
-    # set initial conditions
-    r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
-    # store solution at each iteration step
-    r.set_solout(solout)
-    # integrate
-    r.integrate(NTp * tp)
-    # get complete solution
-    t = np.array(time)
-    sol = np.array(sol)
+    t, sol, ve, inod, leg = evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond)
 
     # print max. values
     vmax = sol[:, 0:N].max()
