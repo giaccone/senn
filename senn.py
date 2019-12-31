@@ -2,6 +2,56 @@
 import numpy as np
 
 
+# classes
+class AxonModel:
+    """
+    Class that defines the Axon Model according to McNeal 1976 and Reilly 1985.
+
+    Attributes
+    ----------
+    D (float): fiber diameter
+    rhoi (float): axoplasm resistivity
+    rhoe (float): external medium resistivity
+    gm (float): membrane conductance per unit length
+    l (float): nodal gap width
+    cm (float): membrane conductance per unit area
+    Vr (float): rest potential
+    Ga (float): internonal conductance
+    Gm (float): transmembrane conductance
+    Cm  (float): transmembrane capacitance
+    """
+
+    def __init__(self, D=20e-6, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3):
+        """
+
+        Parameters
+        ----------
+        D (float): fiber diameter
+        rhoi (float): axoplasm resistivity
+        rhoe (float): external medium resistivity
+        gm (float): membrane conductance per unit length
+        l (float): nodal gap width
+        cm (float): membrane conductance per unit area
+        Vr (float): rest potential
+        """
+
+        self.D = D          # fiber diameter
+        self.rhoi = rhoi    # axoplasm resistivity
+        self.rhoe = rhoe    # external medium resistivity
+        self.gm = gm        # membrane conductance per unit length
+        self.l = l          # nodal gap width
+        self.cm = cm        # mebrane conductance per unit area
+        self.Vr = Vr        # rest potential
+
+        self.d = 0.7 * self.D   # axon diameter
+        self.L = 100 * self.D   # internodal length
+
+        # COMPUTED PARAMETERS
+        self.Ga = np.pi * self.d ** 2 / (4 * self.rhoi * self.L)
+        self.Gm = self.gm * np.pi * self.d * self.l
+        self.Cm = self.cm * np.pi * self.d * self.l
+
+
 def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
     """
     'write_ode' writes the system of ODE including Frankenhaeuser and Huxley equations
@@ -189,18 +239,13 @@ def define_stimulus(kind, **kwargs):
     return ve, inod, leg
 
 
-def find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1e-3):
+def find_sub_supra(axon, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1e-3):
     """
     'find_sub_supra' computes boundary values for the bisection method (used to identify the threeshold)
 
     Parameters
     ----------
-    Ga (float): internodal conductance
-    Gm (float): transmembrane conductance
-    Cm (float): transmembrane capacitance
-    d (float): axon diameter
-    l (float): nodal gap width
-    Vr (float): rest potential
+    axon (AxonModel): axon model
     kind (str): kind of stimulus
     param (dict): parameters of the stimulus
     NTp (float): number of 'tp'
@@ -239,7 +284,7 @@ def find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value=
         # define integrator
         r = ode(eqdiff).set_integrator('dopri5')
         # set initial conditions
-        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, voltage_ext, d, l, Vr)
+        r.set_initial_value(icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
@@ -260,18 +305,13 @@ def find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value=
     return sub_value, sup_value
 
 
-def find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value, sup_value, toll=0.5):
+def find_threshold(axon, kind, param, NTp, tp, icond, sub_value, sup_value, toll=0.5):
     """
     'find_threshold' computes the threshold up to a given tolerance.
 
     Parameters
     ----------
-    Ga (float): internodal conductance
-    Gm (float): transmembrane conductance
-    Cm (float): transmembrane capacitance
-    d (float): axon diameter
-    l (float): nodal gap width
-    Vr (float): rest potential
+    axon (AxonModel): axon model
     kind (str): kind of stimulus
     param (dict): parameters of the stimulus
     NTp (float): number of 'tp'
@@ -305,7 +345,7 @@ def find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value,
     while (err > toll):
         # define stumulus
         param['magnitude'] = new_value
-        ve, _, _ = define_stimulus(kind, **param)
+        voltage_ext, _, _ = define_stimulus(kind, **param)
 
         # initialize solution variable
         time = []
@@ -313,7 +353,7 @@ def find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value,
         # define integrator
         r = ode(eqdiff).set_integrator('dopri5')
         # set initial conditions
-        r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+        r.set_initial_value(icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
@@ -341,18 +381,13 @@ def find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, sub_value,
     return threshold
 
 
-def evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond):
+def evaluate_senn(axon, kind, param, NTp, tp, icond):
     """
     'evaluate_senn' computes the solution of the SENN model for a given stimulus
 
     Parameters
     ----------
-    Ga (float): internodal conductance
-    Gm (float): transmembrane conductance
-    Cm (float): transmembrane capacitance
-    d (float): axon diameter
-    l (float): nodal gap width
-    Vr (float): rest potential
+    axon (AxonModel): axon model
     kind (str): kind of stimulus
     param (dict): parameters of the stimulus
     NTp (float): number of 'tp'
@@ -367,7 +402,7 @@ def evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond):
     """
 
     # define stimulus
-    ve, inod, leg = define_stimulus(kind, **param)
+    voltage_ext, inod, leg = define_stimulus(kind, **param)
 
     # callback to save solution at each iteration of the integration
     def solout(t, y):
@@ -380,7 +415,7 @@ def evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond):
     # define integrator
     r = ode(eqdiff).set_integrator('dopri5')
     # set initial conditions
-    r.set_initial_value(icond, 0).set_f_params(Ga, Gm, Cm, ve, d, l, Vr)
+    r.set_initial_value(icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
     # store solution at each iteration step
     r.set_solout(solout)
     # integrate
@@ -389,7 +424,7 @@ def evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond):
     t = np.array(time)
     sol = np.array(sol)
 
-    return t, sol, ve, inod, leg
+    return t, sol, voltage_ext, inod, leg
 
 
 if __name__ == "__main__":
@@ -398,7 +433,7 @@ if __name__ == "__main__":
     from timeit import default_timer as timer
     plt.ion()
 
-    # FIXED PARAMETERS
+    # Define axon model
     D = 20e-6           # fiber diamater
     d = 0.7*D           # axon diamater
     L = 100 * D           # internodal length
@@ -409,10 +444,7 @@ if __name__ == "__main__":
     cm = 2e-2           # membrane conductance per unit area
     Vr = -70e-3         # rest potential
 
-    # COMPUTED PARAMETERS
-    Ga = np.pi * d**2 / (4 * rhoi * L)
-    Gm = gm * np.pi * d * l
-    Cm = cm * np.pi * d * l
+    axon = AxonModel(D=D, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr)
 
     # write & import equation
     N = 21       # total number of node
@@ -453,14 +485,14 @@ if __name__ == "__main__":
     icond = [0] * N + [0.0005, 0.8249, 0.0268, 0.0049] * (nlin2 - nlin1 + 1)
 
     # Identification of boundaries for bisection method
-    Isub, Isup = find_sub_supra(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond)
+    Isub, Isup = find_sub_supra(axon, kind, param, NTp, tp, icond)
 
     # Identification of the thresholds
-    It = find_threshold(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond, Isub, Isup, toll=0.5)
+    It = find_threshold(axon, kind, param, NTp, tp, icond, Isub, Isup, toll=0.5)
 
     # one shot simulation
     param['magnitude'] = It
-    t, sol, ve, inod, leg = evaluate_senn(Ga, Gm, Cm, d, l, Vr, kind, param, NTp, tp, icond)
+    t, sol, ve, inod, leg = evaluate_senn(axon, kind, param, NTp, tp, icond)
 
     # print max. values
     vmax = sol[:, 0:N].max()
