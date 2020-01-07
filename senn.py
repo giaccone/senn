@@ -21,7 +21,7 @@ class AxonModel:
     Cm  (float): transmembrane capacitance
     """
 
-    def __init__(self, D=20e-6, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3):
+    def __init__(self, D=20e-6, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3, node_num=21, inl1=0, inl2=21):
         """
 
         Parameters
@@ -33,8 +33,12 @@ class AxonModel:
         l (float): nodal gap width
         cm (float): membrane conductance per unit area
         Vr (float): rest potential
+        node_num (int): total number of node
+        inl1 (int): first non-linear node
+        inl2 (int): second non-linear node
         """
 
+        # given parameters
         self.D = D          # fiber diameter
         self.rhoi = rhoi    # axoplasm resistivity
         self.rhoe = rhoe    # external medium resistivity
@@ -43,10 +47,16 @@ class AxonModel:
         self.cm = cm        # mebrane conductance per unit area
         self.Vr = Vr        # rest potential
 
+        self.node_num = node_num    # total number of node
+        self.inl1 = inl1            # first non-linear node
+        self.inl2 = inl2            # second non-linear node
+
+        # computed parameters
+        self.icond = [0] * node_num + [0.0005, 0.8249, 0.0268, 0.0049] * (inl2 - inl1 + 1)  # initial condition
+
         self.d = 0.7 * self.D   # axon diameter
         self.L = 100 * self.D   # internodal length
 
-        # COMPUTED PARAMETERS
         self.Ga = np.pi * self.d ** 2 / (4 * self.rhoi * self.L)
         self.Gm = self.gm * np.pi * self.d * self.l
         self.Cm = self.cm * np.pi * self.d * self.l
@@ -239,7 +249,7 @@ def define_stimulus(kind, **kwargs):
     return ve, inod, leg
 
 
-def find_sub_supra(axon, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1e-3):
+def find_sub_supra(axon, kind, param, NTp, tp, sub_value=0, sup_value=0.1e-3):
     """
     'find_sub_supra' computes boundary values for the bisection method (used to identify the threeshold)
 
@@ -250,7 +260,6 @@ def find_sub_supra(axon, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1
     param (dict): parameters of the stimulus
     NTp (float): number of 'tp'
     tp (float): pulse duration
-    icond (list): initial conditions of the ODE
     sub_value (float): initial guess of sub-threshold value (default is 0)
     sup_value (float): initial guess of supra-threshold value (default is 0.1e-3)
 
@@ -284,7 +293,7 @@ def find_sub_supra(axon, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1
         # define integrator
         r = ode(eqdiff).set_integrator('dopri5')
         # set initial conditions
-        r.set_initial_value(icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
+        r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
@@ -293,7 +302,7 @@ def find_sub_supra(axon, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1
         x = np.array(sol)
 
         # get number of nodes with voltage > 80 mV
-        N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
+        N80 = (np.max(x[:, 0:node_num], axis=0) > 80e-3).sum()
         if N80 > 3:
             flag = 0
         else:
@@ -305,7 +314,7 @@ def find_sub_supra(axon, kind, param, NTp, tp, icond, sub_value=0, sup_value=0.1
     return sub_value, sup_value
 
 
-def find_threshold(axon, kind, param, NTp, tp, icond, sub_value, sup_value, toll=0.5):
+def find_threshold(axon, kind, param, NTp, tp, sub_value, sup_value, toll=0.5):
     """
     'find_threshold' computes the threshold up to a given tolerance.
 
@@ -316,7 +325,6 @@ def find_threshold(axon, kind, param, NTp, tp, icond, sub_value, sup_value, toll
     param (dict): parameters of the stimulus
     NTp (float): number of 'tp'
     tp (float): pulse duration
-    icond (list): initial conditions of the ODE
     sub_value (float): sub-threshold value
     sup_value (float): supra-threshold value
     toll (float): tolerance to identify the threshold (default is 0.5 %)
@@ -353,7 +361,7 @@ def find_threshold(axon, kind, param, NTp, tp, icond, sub_value, sup_value, toll
         # define integrator
         r = ode(eqdiff).set_integrator('dopri5')
         # set initial conditions
-        r.set_initial_value(icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
+        r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
@@ -362,7 +370,7 @@ def find_threshold(axon, kind, param, NTp, tp, icond, sub_value, sup_value, toll
         x = np.array(sol)
 
         # get number of nodes with voltage > 80 mV
-        N80 = (np.max(x[:, 0:N], axis=0) > 80e-3).sum()
+        N80 = (np.max(x[:, 0:node_num], axis=0) > 80e-3).sum()
         if N80 > 3:
             sup_value = -new_value
         else:
@@ -381,7 +389,7 @@ def find_threshold(axon, kind, param, NTp, tp, icond, sub_value, sup_value, toll
     return threshold
 
 
-def evaluate_senn(axon, kind, param, NTp, tp, icond):
+def evaluate_senn(axon, kind, param, NTp, tp):
     """
     'evaluate_senn' computes the solution of the SENN model for a given stimulus
 
@@ -392,7 +400,6 @@ def evaluate_senn(axon, kind, param, NTp, tp, icond):
     param (dict): parameters of the stimulus
     NTp (float): number of 'tp'
     tp (float): pulse duration
-    icond (list): initial conditions of the ODE
 
     Returns
     -------
@@ -415,7 +422,7 @@ def evaluate_senn(axon, kind, param, NTp, tp, icond):
     # define integrator
     r = ode(eqdiff).set_integrator('dopri5')
     # set initial conditions
-    r.set_initial_value(icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
+    r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
     # store solution at each iteration step
     r.set_solout(solout)
     # integrate
@@ -443,14 +450,14 @@ if __name__ == "__main__":
     l = 2.5e-6          # nodal gap width
     cm = 2e-2           # membrane conductance per unit area
     Vr = -70e-3         # rest potential
+    node_num = 21  # total number of node
+    inl1 = 0  # first non-linear node
+    inl2 = 20  # last non-linear node
 
-    axon = AxonModel(D=D, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr)
+    axon = AxonModel(D=D, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr, node_num=node_num, inl1=inl1, inl2=inl2)
 
     # write & import equation
-    N = 21       # total number of node
-    nlin1 = 0    # first non-linear node
-    nlin2 = 20   # last non-linear node
-    write_ode(N, nlin1, nlin2)
+    write_ode(axon.node_num, axon.inl1, axon.inl2)
     from eqdiff import eqdiff
 
     # define stimulus
@@ -458,45 +465,42 @@ if __name__ == "__main__":
     if kind == 'monoph':
         tp = 100e-6
         NTp = 10
-        param = {'length':L, 'node_num':N, 'tp':tp, 'magnitude':0, 'rhoe':rhoe}
+        param = {'length':L, 'node_num':node_num, 'tp':tp, 'magnitude':0, 'rhoe':rhoe}
         ktime = 1e6
         umes_time = "($\mu$s)"
     elif kind == 'biph':
         tp = 100e-6
         tp1 = 50e-6
         NTp = 10
-        param = {'length': L, 'node_num': N, 'tp': tp, 'magnitude': 0, 'rhoe': rhoe, 'tp1':tp1}
+        param = {'length': L, 'node_num': node_num, 'tp': tp, 'magnitude': 0, 'rhoe': rhoe, 'tp1':tp1}
         ktime = 1e6
         umes_time = "($\mu$s)"
     elif kind == 'efield':
         tp = 100e-6
         NTp = 10
-        param = {'length': L, 'node_num': N, 'tp': tp, 'magnitude': 0}
+        param = {'length': L, 'node_num': node_num, 'tp': tp, 'magnitude': 0}
         ktime = 1e6
         umes_time = "($\mu$s)"
     elif kind == 'sine':
         tp = 20e-6
         NTp = 25
-        param = {'length': L, 'node_num': N, 'tp': tp, 'magnitude': 0, 'rhoe':rhoe, 'freq':(1/tp)}
+        param = {'length': L, 'node_num': node_num, 'tp': tp, 'magnitude': 0, 'rhoe':rhoe, 'freq':(1 / tp)}
         ktime = 1e6
         umes_time = "($\mu$s)"
 
-    # define initial condition
-    icond = [0] * N + [0.0005, 0.8249, 0.0268, 0.0049] * (nlin2 - nlin1 + 1)
-
     # Identification of boundaries for bisection method
-    Isub, Isup = find_sub_supra(axon, kind, param, NTp, tp, icond)
+    Isub, Isup = find_sub_supra(axon, kind, param, NTp, tp)
 
     # Identification of the thresholds
-    It = find_threshold(axon, kind, param, NTp, tp, icond, Isub, Isup, toll=0.5)
+    It = find_threshold(axon, kind, param, NTp, tp, Isub, Isup, toll=0.5)
 
     # one shot simulation
     param['magnitude'] = It
-    t, sol, ve, inod, leg = evaluate_senn(axon, kind, param, NTp, tp, icond)
+    t, sol, ve, inod, leg = evaluate_senn(axon, kind, param, NTp, tp)
 
     # print max. values
-    vmax = sol[:, 0:N].max()
-    i, j = np.unravel_index(np.argmax(sol[:, 0:N]), sol[:, 0:N].shape)
+    vmax = sol[:, 0:node_num].max()
+    i, j = np.unravel_index(np.argmax(sol[:, 0:node_num]), sol[:, 0:node_num].shape)
     tmax = t[i]
     print('\n------------------------------------------------------')
     print('Stimulus: ' + kind)
@@ -507,7 +511,7 @@ if __name__ == "__main__":
     print('max. stimulation at node number: {} (0 = first node)'.format(j))
 
     # action potential check
-    N80 = (np.max(sol[:, 0:N], axis=0) > 80e-3).sum()
+    N80 = (np.max(sol[:, 0:node_num], axis=0) > 80e-3).sum()
     if N80 > 3:
         print('action potential started: {} nodes with V > 80 mv'.format(N80))
     else:
