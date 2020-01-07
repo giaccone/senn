@@ -62,6 +62,110 @@ class AxonModel:
         self.Cm = self.cm * np.pi * self.d * self.l
 
 
+class StimulusModel:
+    """
+        Class that defines the Stimulus.
+
+        Attributes
+        ----------
+        kind (str): kind of stimulus ('efield', 'monoph', 'biph', 'sine')
+        magnitude (float): magnitude of the stimulus
+        tp (float): duration of the strimulus
+        tp1 (float): additional duration (for 'biph')
+            tp1 --> high part of the stimulus
+            (consequently: tp - tp1 --> low part of the stimulus)
+        freq (float): frequency (for 'sine')
+        waveform (function): lambda function that generates the stimulus over time
+        voltage_ext (function): lambda function that generates the exitation voltage over time at a given point
+        ye (ndarray): depth of the electrode
+        x (ndarray): location of Ranvier's nodes
+        r (ndarray): distance of the Ranvier's nodes fron the electrode
+        inod (list): index of node to be plotted (the ones where the action potential is originated)
+        leg (list): legend to be used in the plot of the action potential
+        """
+
+    def __init__(self, axon, kind, magnitude, tp, tend=None, tp1=None, freq=None):
+        """
+
+        Parameters
+        ----------
+        axon (AxonModel): axon model
+        kind (str): kind of stimulus
+        magnitude (float): magnitude of the stimulus
+        tp (float): pulse duration
+        tend (float): end of the stimulus (it corresponds to the total simulation time)
+        tp1 (float): additional duration (for 'biph')
+            tp1 --> high part of the stimulus
+            (consequently: tp - tp1 --> low part of the stimulus)
+        freq (float): frequency (for 'sine')
+        """
+        # given attributes
+        self.kind = kind
+        self.magnitude = magnitude
+        self.tp = tp
+        if tend is None:
+            self.tend = 10 * self.tp
+        else:
+            self.tend = tend
+        self.tp1 = tp1
+        self.freq = freq
+
+        # initialization of attributes defined later with 'build_voltage_ext' and 'build_waveform'
+        self.voltage_ext = None
+        self.waveform = None
+        self.ye = None
+        self.x = None
+        self.r = None
+        self.inod = None
+        self.leg = None
+
+        # update voltage_ext, waveform, ye, x, r, inod, leg
+        self.update_stimulus(axon)
+
+    def update_stimulus(self, axon):
+        """
+        'update_stimulus' generates the lambda function to define excitation voltage over time at a given point
+        and the lambda function to define waveform over time
+
+        Parameters
+        ----------
+        axon (AxonModel): axon model
+
+        """
+        if self.kind.lower() == 'efield':
+            normalized_waveform = axon.L * np.arange(axon.node_num - 1, -1, -1)
+            self.voltage_ext = lambda t, k: (t <= self.tp) * self.magnitude * normalized_waveform[k]
+            self.waveform = lambda t, k: (t <= self.tp) * self.magnitude
+            self.inod = np.arange(0, 6, dtype=int)
+        else:
+            self.ye = 2e-3
+            self.x = (np.linspace(0, axon.node_num - 1, axon.node_num) - (axon.node_num - 1) / 2) * axon.L
+            self.r = np.sqrt(self.x ** 2 + self.ye ** 2)
+
+        if self.kind.lower() == 'monoph':
+            # Electrical stimulation
+            self.voltage_ext = lambda t, k: (t <= self.tp) * axon.rhoe * self.magnitude / (4 * np.pi * self.r[k])
+            self.waveform = lambda t: (t <= self.tp) * self.magnitude
+            # plot variables
+            self.inod = np.arange((axon.node_num - 1) / 2, (axon.node_num - 1) / 2 + 6, dtype=int)
+
+        elif kind.lower() == 'biph':
+            # Electrical stimulation
+            self.voltage_ext = lambda t, k: (axon.rhoe * self.magnitude) / (4 * np.pi) * ((t <= self.tp1) / self.r[k] - ((t > self.tp1) & (t <= self.tp)) / self.r[k])
+            self.waveform = lambda t: self.magnitude * ((t <= self.tp1) - ((t > self.tp1) & (t <= self.tp)))
+            # plot variables
+            self.inod = np.arange((axon.node_num - 1) / 2, (axon.node_num - 1) / 2 + 6, dtype=int)
+
+        elif kind.lower() == 'sine':
+            # Electrical stimulation
+            self.voltage_ext = lambda t, k: (t <= self.tp) * axon.rhoe * self.magnitude * np.sin(2 * np.pi * self.freq * t) / (4 * np.pi * self.r[k])
+            self.waveform = lambda t: (t <= self.tp) * self.magnitude * np.sin(2 * np.pi * self.freq * t)
+            # plot variables
+            self.inod = np.arange((axon.node_num - 1) / 2, (axon.node_num - 1) / 2 + 6, dtype=int)
+
+        self.leg = ['node #' + str(k) for k in self.inod]
+
+
 def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
     """
     'write_ode' writes the system of ODE including Frankenhaeuser and Huxley equations
@@ -169,97 +273,14 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
     fid.close()
 
 
-def define_stimulus(kind, **kwargs):
-    """
-    'define_stimulus' generates the lambda function to estimate the external nodal voltages
-
-    Parameters
-    ----------
-    kind (str):
-        define the stimulus: 'efield', 'monoph', 'biph', 'sine'
-        'efield' requires: length, node_num, tp, magnitude
-        'monoph' requires: length, node_num, tp, magnitude, rhoe
-        'biph'   requires: length, node_num, tp, magnitude, rhoe, tp1
-        'sine'   requires: length, node_num, tp, magnitude, rhoe, freq
-
-    The following parameters have to be passed through **kwargs:
-        magnitude (float):
-            magnitude of the stimulus
-        tp (float):
-            duration of the stimulus
-        node_num (int):
-            number of node in the fiber
-        length (float):
-            length of the fiber
-        rhoe (float):
-            medium resistivity
-        tp1 (float):
-            required only for 'biph' stimulus
-            tp1 --> high part of the stimulus
-            (consequently: tp - tp1 --> low part of the stimulus)
-        freq (float):
-            frequency of the sine wave
-
-    Returns
-    -------
-    ve (function):
-        lambda function to estimate the external nodal voltages
-    inod (ndarray):
-        index of node to be plotted
-        (the ones where the action potential is originated)
-    leg (str):
-        legend to be used in the plot of the action potential
-
-    """
-
-    if kind.lower() == 'efield':
-        vext_norm = kwargs['length'] * np.arange(kwargs['node_num'] - 1, -1, -1)
-        ve = lambda t, k: (t <= kwargs['tp']) * kwargs['magnitude'] * vext_norm[k]
-        # plot variables
-        inod = np.arange(0, 6, dtype=int)
-        leg = ['node #' + str(k) for k in inod]
-
-    else:
-        # Stimulation via electrode in central position
-        ye = 2e-3
-        x = (np.linspace(0, kwargs['node_num'] - 1, kwargs['node_num']) - (kwargs['node_num'] - 1) / 2) * kwargs['length']
-        r = np.sqrt(x ** 2 + ye ** 2)
-
-    if kind.lower() == 'monoph':
-        # Electrical stimulation
-        ve = lambda t, k: (t <= kwargs['tp']) * kwargs['rhoe'] * kwargs['magnitude'] / (4 * np.pi * r[k])
-        # plot variables
-        inod = np.arange((kwargs['node_num'] - 1) / 2, (kwargs['node_num'] - 1) / 2 + 6, dtype=int)
-        leg = ['node #' + str(k) for k in inod]
-
-    elif kind.lower() == 'biph':
-        # Electrical stimulation
-        ve = lambda t, k: (kwargs['rhoe'] * kwargs['magnitude']) / (4 * np.pi) * ((t <= kwargs['tp1']) / r[k] - ((t > kwargs['tp1']) & (t <= kwargs['tp'])) / r[k])
-        # plot variables
-        inod = np.arange((kwargs['node_num'] - 1) / 2, (kwargs['node_num'] - 1) / 2 + 6, dtype=int)
-        leg = ['node #' + str(k) for k in inod]
-
-    elif kind.lower() == 'sine':
-        # Electrical stimulation
-        ve = lambda t, k: (t <= kwargs['tp']) * kwargs['rhoe'] * kwargs['magnitude'] * np.sin(2 * np.pi * kwargs['freq'] * t) / (4 * np.pi * r[k])
-        # plot variables
-        inod = np.arange((kwargs['node_num'] - 1) / 2, (kwargs['node_num'] - 1) / 2 + 6, dtype=int)
-        leg = ['node #' + str(k) for k in inod]
-
-    return ve, inod, leg
-
-
-def find_sub_supra(axon, kind, param, NTp, tp, sub_value=0, sup_value=0.1e-3):
+def find_sub_supra(axon, stimulus, sub_value=0, sup_value=0.1e-3):
     """
     'find_sub_supra' computes boundary values for the bisection method (used to identify the threeshold)
 
     Parameters
     ----------
     axon (AxonModel): axon model
-    kind (str): kind of stimulus
-    param (dict): parameters of the stimulus
-    NTp (float): number of 'tp'
-    tp (float): pulse duration
+    stimulus (StimulusModel): stimulus model
     sub_value (float): initial guess of sub-threshold value (default is 0)
     sup_value (float): initial guess of supra-threshold value (default is 0.1e-3)
 
@@ -278,9 +299,9 @@ def find_sub_supra(axon, kind, param, NTp, tp, sub_value=0, sup_value=0.1e-3):
     print('------------------------------------------------------')
     ts = timer()
     while flag:
-        # define stumulus
-        param['magnitude'] = -sup_value
-        voltage_ext, _, _ = define_stimulus(kind, **param)
+        # update stimulus
+        stimulus.magnitude = -sup_value
+        stimulus.update_stimulus(axon)
 
         # callback to save solution at each iteration of the integration
         def solout(t, y):
@@ -293,11 +314,11 @@ def find_sub_supra(axon, kind, param, NTp, tp, sub_value=0, sup_value=0.1e-3):
         # define integrator
         r = ode(eqdiff).set_integrator('dopri5')
         # set initial conditions
-        r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
+        r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, stimulus.voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
-        r.integrate(NTp * tp)
+        r.integrate(stimulus.tend)
         # get complete solution
         x = np.array(sol)
 
@@ -310,21 +331,18 @@ def find_sub_supra(axon, kind, param, NTp, tp, sub_value=0, sup_value=0.1e-3):
             sup_value = 2 * sup_value
     te = timer()
     print('...done. (sub, sup) = ({},{})'.format(sub_value, sup_value))
-    print('\n elapsed time: {:3f} ms'.format(te - ts))
+    print('\n    elapsed time: {:3f} ms'.format(te - ts))
     return sub_value, sup_value
 
 
-def find_threshold(axon, kind, param, NTp, tp, sub_value, sup_value, toll=0.5):
+def find_threshold(axon, stimulus, sub_value, sup_value, toll=0.5):
     """
     'find_threshold' computes the threshold up to a given tolerance.
 
     Parameters
     ----------
     axon (AxonModel): axon model
-    kind (str): kind of stimulus
-    param (dict): parameters of the stimulus
-    NTp (float): number of 'tp'
-    tp (float): pulse duration
+    stimulus (StimulusModel): stimulus model
     sub_value (float): sub-threshold value
     sup_value (float): supra-threshold value
     toll (float): tolerance to identify the threshold (default is 0.5 %)
@@ -332,10 +350,11 @@ def find_threshold(axon, kind, param, NTp, tp, sub_value, sup_value, toll=0.5):
     Returns
     -------
     threshold (float): threshold value up to a given tolerance 'toll'
-
+    stimulus (StimulusModel): stimulus model with magnitude = threshold
     """
     # Identification of the thresholds
     err = 100
+    N80 = 0
     sim_value = 0.5 * (sub_value + sup_value)
     old_value = -sim_value
     new_value = -sim_value
@@ -350,10 +369,10 @@ def find_threshold(axon, kind, param, NTp, tp, sub_value, sup_value, toll=0.5):
     print('Looking for threshold...')
     print('------------------------------------------------------')
     ts = timer()
-    while (err > toll):
-        # define stumulus
-        param['magnitude'] = new_value
-        voltage_ext, _, _ = define_stimulus(kind, **param)
+    while ((err > toll) or (N80 < 3)):
+        # update stimulus
+        stimulus.magnitude = new_value
+        stimulus.update_stimulus(axon)
 
         # initialize solution variable
         time = []
@@ -361,16 +380,16 @@ def find_threshold(axon, kind, param, NTp, tp, sub_value, sup_value, toll=0.5):
         # define integrator
         r = ode(eqdiff).set_integrator('dopri5')
         # set initial conditions
-        r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
+        r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, stimulus.voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
         r.set_solout(solout)
         # integrate
-        r.integrate(NTp * tp)
+        r.integrate(stimulus.tend)
         # get complete solution
         x = np.array(sol)
 
         # get number of nodes with voltage > 80 mV
-        N80 = (np.max(x[:, 0:node_num], axis=0) > 80e-3).sum()
+        N80 = (np.max(x[:, 0:axon.node_num], axis=0) > 80e-3).sum()
         if N80 > 3:
             sup_value = -new_value
         else:
@@ -383,33 +402,31 @@ def find_threshold(axon, kind, param, NTp, tp, sub_value, sup_value, toll=0.5):
         cnt += 1
 
     te = timer()
-    print('\n elapsed time: {:3f} ms'.format(te - ts))
-
-    threshold = min([new_value, old_value])
-    return threshold
+    print('\n    elapsed time: {:3f} ms'.format(te - ts))
+    print('    threshold: {}  (tolerance {} %%)'.format(old_value, toll))
 
 
-def evaluate_senn(axon, kind, param, NTp, tp):
+
+    # update stimulus
+    stimulus.magnitude = -old_value
+    stimulus.update_stimulus(axon)
+    return old_value, stimulus
+
+
+def evaluate_senn(axon, stimulus):
     """
     'evaluate_senn' computes the solution of the SENN model for a given stimulus
 
     Parameters
     ----------
     axon (AxonModel): axon model
-    kind (str): kind of stimulus
-    param (dict): parameters of the stimulus
-    NTp (float): number of 'tp'
-    tp (float): pulse duration
+    stimulus (StimulusModel): stimulus model
 
     Returns
     -------
     t (ndarray): time values at which the solution is defined
     sol (ndarray):  solution
-
     """
-
-    # define stimulus
-    voltage_ext, inod, leg = define_stimulus(kind, **param)
 
     # callback to save solution at each iteration of the integration
     def solout(t, y):
@@ -422,16 +439,16 @@ def evaluate_senn(axon, kind, param, NTp, tp):
     # define integrator
     r = ode(eqdiff).set_integrator('dopri5')
     # set initial conditions
-    r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, voltage_ext, axon.d, axon.l, axon.Vr)
+    r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, stimulus.voltage_ext, axon.d, axon.l, axon.Vr)
     # store solution at each iteration step
     r.set_solout(solout)
     # integrate
-    r.integrate(NTp * tp)
+    r.integrate(stimulus.tend)
     # get complete solution
     t = np.array(time)
     sol = np.array(sol)
 
-    return t, sol, voltage_ext, inod, leg
+    return t, sol
 
 
 if __name__ == "__main__":
@@ -464,54 +481,58 @@ if __name__ == "__main__":
     kind = 'sine'
     if kind == 'monoph':
         tp = 100e-6
-        NTp = 10
-        param = {'length':L, 'node_num':node_num, 'tp':tp, 'magnitude':0, 'rhoe':rhoe}
+        tend = 10 * tp
+        magnitude = 0
+        stimulus = StimulusModel(axon, kind, magnitude, tp, tend)
         ktime = 1e6
         umes_time = "($\mu$s)"
     elif kind == 'biph':
         tp = 100e-6
         tp1 = 50e-6
-        NTp = 10
-        param = {'length': L, 'node_num': node_num, 'tp': tp, 'magnitude': 0, 'rhoe': rhoe, 'tp1':tp1}
+        tend = 10 * tp
+        magnitude = 0
+        stimulus = StimulusModel(axon, kind, magnitude, tp, tend, tp1=tp1)
         ktime = 1e6
         umes_time = "($\mu$s)"
     elif kind == 'efield':
         tp = 100e-6
-        NTp = 10
-        param = {'length': L, 'node_num': node_num, 'tp': tp, 'magnitude': 0}
+        tend = 10 * tp
+        magnitude = 0
+        stimulus = StimulusModel(axon, kind, magnitude, tp)
         ktime = 1e6
         umes_time = "($\mu$s)"
     elif kind == 'sine':
+        magnitude = 0
         tp = 20e-6
-        NTp = 25
-        param = {'length': L, 'node_num': node_num, 'tp': tp, 'magnitude': 0, 'rhoe':rhoe, 'freq':(1 / tp)}
+        freq = 1 / tp
+        tend = 25 * tp
+        stimulus = StimulusModel(axon, kind, magnitude, tp, tend, freq=freq)
         ktime = 1e6
         umes_time = "($\mu$s)"
 
     # Identification of boundaries for bisection method
-    Isub, Isup = find_sub_supra(axon, kind, param, NTp, tp)
+    Isub, Isup = find_sub_supra(axon, stimulus)
 
     # Identification of the thresholds
-    It = find_threshold(axon, kind, param, NTp, tp, Isub, Isup, toll=0.5)
+    It, stimulus = find_threshold(axon, stimulus, Isub, Isup, toll=0.5)
 
     # one shot simulation
-    param['magnitude'] = It
-    t, sol, ve, inod, leg = evaluate_senn(axon, kind, param, NTp, tp)
+    t, sol = evaluate_senn(axon, stimulus)
 
     # print max. values
-    vmax = sol[:, 0:node_num].max()
-    i, j = np.unravel_index(np.argmax(sol[:, 0:node_num]), sol[:, 0:node_num].shape)
+    vmax = sol[:, 0:axon.node_num].max()
+    i, j = np.unravel_index(np.argmax(sol[:, 0:axon.node_num]), sol[:, 0:axon.node_num].shape)
     tmax = t[i]
     print('\n------------------------------------------------------')
-    print('Stimulus: ' + kind)
+    print('Stimulus: ' + stimulus.kind)
     print('Strength: {}'.format(It))
-    print('Duration: {}'.format(tp * ktime) + umes_time.replace('$', '').replace('\\', '').replace('mu', 'u'))
+    print('Duration: {}'.format(stimulus.tp * ktime) + umes_time.replace('$', '').replace('\\', '').replace('mu', 'u'))
     print('max. membrane voltage: {:.3f} mV'.format(vmax*1e3))
     print('max. reached at: {:.3f} '.format(tmax * ktime) + umes_time.replace('$','').replace('\\','').replace('mu','u'))
     print('max. stimulation at node number: {} (0 = first node)'.format(j))
 
     # action potential check
-    N80 = (np.max(sol[:, 0:node_num], axis=0) > 80e-3).sum()
+    N80 = (np.max(sol[:, 0:axon.node_num], axis=0) > 80e-3).sum()
     if N80 > 3:
         print('action potential started: {} nodes with V > 80 mv'.format(N80))
     else:
@@ -519,7 +540,16 @@ if __name__ == "__main__":
 
     # plot stimulus
     plt.figure(facecolor='w')
-    plt.plot(t * ktime, -ve(t, inod[0]) * 1e3, linewidth=2)
+    plt.plot(t * ktime, -stimulus.waveform(t) * 1e3, linewidth=2)
+    plt.xlabel('time ' + umes_time, fontsize=16)
+    plt.ylabel('stimulus (mA)', fontsize=16)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.tight_layout()
+
+    # plot stimulus
+    plt.figure(facecolor='w')
+    plt.plot(t * ktime, -stimulus.voltage_ext(t, stimulus.inod[0]) * 1e3, linewidth=2)
     plt.xlabel('time ' + umes_time,fontsize=16)
     plt.ylabel('external potential (mV)', fontsize=16)
     plt.xticks(fontsize=16)
@@ -528,10 +558,10 @@ if __name__ == "__main__":
 
     # plot nodes
     plt.figure(facecolor='w')
-    plt.plot(t * ktime, sol[:, inod] * 1e3, linewidth=2)
+    plt.plot(t * ktime, sol[:, stimulus.inod] * 1e3, linewidth=2)
     plt.xlabel('time ' + umes_time, fontsize=16)
     plt.ylabel('external potential (mV)', fontsize=16)
-    plt.legend(leg,loc='best')
+    plt.legend(stimulus.leg,loc='best')
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     plt.tight_layout()
