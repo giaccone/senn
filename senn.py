@@ -14,14 +14,53 @@ class AxonModel:
     rhoe (float): external medium resistivity
     gm (float): membrane conductance per unit length
     l (float): nodal gap width
-    cm (float): membrane conductance per unit area
+    cm (float): membrane capacitance per unit area
     Vr (float): rest potential
+    node_num (int): total number of node
+    inl1 (int): first non-linear node
+    inl2 (int): second non-linear node
+    icond (list): initial conditions for ODE
+    d (float): axon diameter
+    L (float): internodal length
     Ga (float): internonal conductance
     Gm (float): transmembrane conductance
     Cm  (float): transmembrane capacitance
     """
 
-    def __init__(self, D=20e-6, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3, node_num=21, inl1=0, inl2=21):
+    def __repr__(self):
+        return "AxonModel: {} nodes, {} nonlinear nodes".format(self.node_num, self.inl2 - self.inl1 + 1)
+
+    def __str__(self):
+
+        umes = {'D':' (m)',
+                'rhoi':'(ohm m)',
+                'rhoe':'(ohm m)',
+                'gm': '(S / m**2)',
+                'l':'(m)',
+                'cm':'(F / m**2)',
+                'Vr':'(V)',
+                'node_num':'',
+                'inl1':'',
+                'inl2':'',
+                'icond':'',
+                'd':'(m)',
+                'L':'(m)',
+                'Ga':'(S)',
+                'Gm':'(S)',
+                'Cm':'(F)'}
+
+
+        msg = "AxonModel:\n"
+        for attr, value in self.__dict__.items():
+            if attr == 'node_num':
+                msg += "\t{}\t{} {}\n".format(attr, value, umes[attr])
+            elif attr == 'icond':
+                msg += "\t{}\t\t[{} {} ... {} {}] {}\n".format(attr, value[0], value[1], value[-2], value[-1], umes[attr])
+            else:
+                msg += "\t{}\t\t{} {}\n".format(attr, value, umes[attr])
+        return msg
+
+    def __init__(self, D=20e-6, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3, node_num=21, inl1=0, inl2=20):
         """
 
         Parameters
@@ -29,7 +68,7 @@ class AxonModel:
         D (float): fiber diameter
         rhoi (float): axoplasm resistivity
         rhoe (float): external medium resistivity
-        gm (float): membrane conductance per unit length
+        gm (float): membrane conductance per unit area
         l (float): nodal gap width
         cm (float): membrane conductance per unit area
         Vr (float): rest potential
@@ -42,7 +81,7 @@ class AxonModel:
         self.D = D          # fiber diameter
         self.rhoi = rhoi    # axoplasm resistivity
         self.rhoe = rhoe    # external medium resistivity
-        self.gm = gm        # membrane conductance per unit length
+        self.gm = gm        # membrane conductance per unit area
         self.l = l          # nodal gap width
         self.cm = cm        # mebrane conductance per unit area
         self.Vr = Vr        # rest potential
@@ -83,6 +122,22 @@ class StimulusModel:
         inod (list): index of node to be plotted (the ones where the action potential is originated)
         leg (list): legend to be used in the plot of the action potential
         """
+
+    def __repr__(self):
+        return "StimulusModel: {}".format(self.kind)
+
+    def __str__(self):
+        msg = "StimulusModel:\n"
+        msg += "\tkind:\t\t{}\n".format(self.kind)
+        msg += "\tmagnitude:\t{}\n".format(self.magnitude)
+        msg += "\tpulse duration:\t{} (s)\n".format(self.tp)
+        msg += "\ttotal duration:\t{} (s)\n".format(self.tend)
+        if self.kind.lower() == 'biph':
+            msg += "\tother duration\t{} (s)\n".format(self.tp1)
+        if self.kind.lower() == 'sine':
+            msg += "\tfrequency:\t{} (Hz)\n".format(self.freq)
+
+        return msg
 
     def __init__(self, axon, kind, magnitude, tp, tend=None, tp1=None, freq=None):
         """
