@@ -192,7 +192,7 @@ class StimulusModel:
         if self.kind.lower() == 'efield':
             normalized_waveform = axon.L * np.arange(axon.node_num - 1, -1, -1)
             self.voltage_ext = lambda t, k: (t <= self.tp) * self.magnitude * normalized_waveform[k]
-            self.waveform = lambda t, k: (t <= self.tp) * self.magnitude
+            self.waveform = lambda t: (t <= self.tp) * self.magnitude
             self.inod = np.arange(0, 6, dtype=int)
         else:
             self.ye = 2e-3
@@ -206,14 +206,14 @@ class StimulusModel:
             # plot variables
             self.inod = np.arange((axon.node_num - 1) / 2, (axon.node_num - 1) / 2 + 6, dtype=int)
 
-        elif kind.lower() == 'biph':
+        elif self.kind.lower() == 'biph':
             # Electrical stimulation
             self.voltage_ext = lambda t, k: (axon.rhoe * self.magnitude) / (4 * np.pi) * ((t <= self.tp1) / self.r[k] - ((t > self.tp1) & (t <= self.tp)) / self.r[k])
             self.waveform = lambda t: self.magnitude * ((t <= self.tp1) - ((t > self.tp1) & (t <= self.tp)))
             # plot variables
             self.inod = np.arange((axon.node_num - 1) / 2, (axon.node_num - 1) / 2 + 6, dtype=int)
 
-        elif kind.lower() == 'sine':
+        elif self.kind.lower() == 'sine':
             # Electrical stimulation
             self.voltage_ext = lambda t, k: (t <= self.tp) * axon.rhoe * self.magnitude * np.sin(2 * np.pi * self.freq * t) / (4 * np.pi * self.r[k])
             self.waveform = lambda t: (t <= self.tp) * self.magnitude * np.sin(2 * np.pi * self.freq * t)
@@ -603,13 +603,13 @@ if __name__ == "__main__":
         umes_time = "($\mu$s)"
 
     # Identification of boundaries for bisection method
-    Isub, Isup = find_sub_supra(axon, stimulus)
+    Isub, Isup = find_sub_supra(axon, stimulus, eqdiff)
 
     # Identification of the thresholds
-    It, stimulus = find_threshold(axon, stimulus, Isub, Isup, toll=0.5)
+    It, stimulus = find_threshold(axon, stimulus, eqdiff, Isub, Isup, toll=0.5)
 
     # one shot simulation
-    t, sol = evaluate_senn(axon, stimulus)
+    t, sol = evaluate_senn(axon, stimulus, eqdiff)
 
     # analyze output
     analyze_solution(t, sol, axon, stimulus)
