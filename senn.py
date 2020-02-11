@@ -1,5 +1,7 @@
 # import modules
 import numpy as np
+from timeit import default_timer as timer
+from scipy.integrate import ode
 
 
 # classes
@@ -328,7 +330,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
     fid.close()
 
 
-def find_sub_supra(axon, stimulus, sub_value=0, sup_value=0.1e-3):
+def find_sub_supra(axon, stimulus, eqdiff, sub_value=0, sup_value=0.1e-3):
     """
     'find_sub_supra' computes boundary values for the bisection method (used to identify the threeshold)
 
@@ -336,6 +338,7 @@ def find_sub_supra(axon, stimulus, sub_value=0, sup_value=0.1e-3):
     ----------
     axon (AxonModel): axon model
     stimulus (StimulusModel): stimulus model
+    eqdiff (function): function that defines the ODE system
     sub_value (float): initial guess of sub-threshold value (default is 0)
     sup_value (float): initial guess of supra-threshold value (default is 0.1e-3)
 
@@ -378,7 +381,7 @@ def find_sub_supra(axon, stimulus, sub_value=0, sup_value=0.1e-3):
         x = np.array(sol)
 
         # get number of nodes with voltage > 80 mV
-        N80 = (np.max(x[:, 0:node_num], axis=0) > 80e-3).sum()
+        N80 = (np.max(x[:, 0:axon.node_num], axis=0) > 80e-3).sum()
         if N80 > 3:
             flag = 0
         else:
@@ -390,7 +393,7 @@ def find_sub_supra(axon, stimulus, sub_value=0, sup_value=0.1e-3):
     return sub_value, sup_value
 
 
-def find_threshold(axon, stimulus, sub_value, sup_value, toll=0.5):
+def find_threshold(axon, stimulus, eqdiff, sub_value, sup_value, toll=0.5):
     """
     'find_threshold' computes the threshold up to a given tolerance.
 
@@ -398,6 +401,7 @@ def find_threshold(axon, stimulus, sub_value, sup_value, toll=0.5):
     ----------
     axon (AxonModel): axon model
     stimulus (StimulusModel): stimulus model
+    eqdiff (function): function that defines the ODE system
     sub_value (float): sub-threshold value
     sup_value (float): supra-threshold value
     toll (float): tolerance to identify the threshold (default is 0.5 %)
@@ -468,7 +472,7 @@ def find_threshold(axon, stimulus, sub_value, sup_value, toll=0.5):
     return old_value, stimulus
 
 
-def evaluate_senn(axon, stimulus):
+def evaluate_senn(axon, stimulus, eqdiff):
     """
     'evaluate_senn' computes the solution of the SENN model for a given stimulus
 
@@ -476,6 +480,7 @@ def evaluate_senn(axon, stimulus):
     ----------
     axon (AxonModel): axon model
     stimulus (StimulusModel): stimulus model
+    eqdiff (function): function that defines the ODE system
 
     Returns
     -------
@@ -504,6 +509,38 @@ def evaluate_senn(axon, stimulus):
     sol = np.array(sol)
 
     return t, sol
+
+
+def analyze_solution(time, solution, axon, stimulus):
+    """
+    'analyze_solution' print a synthetic summary of the output
+
+    Parameters
+    ----------
+    time (ndarray): simulation time
+    solution (ndarray): solution
+    axon (AxonModel): axon model
+    stimulus (StimulusModel): stimulus model
+
+    """
+    # print max. values
+    vmax = solution[:, 0:axon.node_num].max()
+    i, j = np.unravel_index(np.argmax(solution[:, 0:axon.node_num]), solution[:, 0:axon.node_num].shape)
+    tmax = time[i]
+    print('\n------------------------------------------------------')
+    print('Stimulus: ' + stimulus.kind)
+    print('Magnitude: {:g}'.format(stimulus.magnitude))
+    print('Duration: {:g} (s)'.format(stimulus.tp))
+    print('max. membrane voltage: {:g} (V)'.format(vmax))
+    print('max. reached at: {:g} (s)'.format(tmax))
+    print('max. stimulation at node number: {:d} (0 = first node)'.format(j))
+
+    # action potential check
+    N80 = (np.max(solution[:, 0:axon.node_num], axis=0) > 80e-3).sum()
+    if N80 >= 3:
+        print('action potential started: {:d} nodes with V > 80 mv'.format(N80))
+    else:
+        print('action potential not started: {:d} nodes with V > 80 mV'.format(N80))
 
 
 if __name__ == "__main__":
@@ -574,24 +611,8 @@ if __name__ == "__main__":
     # one shot simulation
     t, sol = evaluate_senn(axon, stimulus)
 
-    # print max. values
-    vmax = sol[:, 0:axon.node_num].max()
-    i, j = np.unravel_index(np.argmax(sol[:, 0:axon.node_num]), sol[:, 0:axon.node_num].shape)
-    tmax = t[i]
-    print('\n------------------------------------------------------')
-    print('Stimulus: ' + stimulus.kind)
-    print('Strength: {}'.format(It))
-    print('Duration: {}'.format(stimulus.tp * ktime) + umes_time.replace('$', '').replace('\\', '').replace('mu', 'u'))
-    print('max. membrane voltage: {:.3f} mV'.format(vmax*1e3))
-    print('max. reached at: {:.3f} '.format(tmax * ktime) + umes_time.replace('$','').replace('\\','').replace('mu','u'))
-    print('max. stimulation at node number: {} (0 = first node)'.format(j))
-
-    # action potential check
-    N80 = (np.max(sol[:, 0:axon.node_num], axis=0) > 80e-3).sum()
-    if N80 > 3:
-        print('action potential started: {} nodes with V > 80 mv'.format(N80))
-    else:
-        print('action potential not started: {} nodes with V > 80 mV'.format(N80))
+    # analyze output
+    analyze_solution(t, sol, axon, stimulus)
 
     # plot stimulus
     plt.figure(facecolor='w')
