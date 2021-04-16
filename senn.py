@@ -30,7 +30,12 @@ class AxonModel:
     """
 
     def __repr__(self):
-        return "AxonModel: {} nodes, {} nonlinear nodes".format(self.node_num, self.inl2 - self.inl1 + 1)
+        if (self.inl1 is None) and (self.inl2 is None):
+            description = "AxonModel: {} nodes, zero nonlinear nodes".format(self.node_num)
+        else:
+            description = "AxonModel: {} nodes, {} nonlinear nodes".format(self.node_num, self.inl2 - self.inl1 + 1)
+
+        return description
 
     def __str__(self):
 
@@ -93,7 +98,10 @@ class AxonModel:
         self.inl2 = inl2            # second non-linear node
 
         # computed parameters
-        self.icond = [0] * node_num + [0.0005, 0.8249, 0.0268, 0.0049] * (inl2 - inl1 + 1)  # initial condition
+        if (inl1 is None) and (inl2 is None):
+            self.icond = [0] * node_num   # initial condition
+        else:
+            self.icond = [0] * node_num + [0.0005, 0.8249, 0.0268, 0.0049] * (inl2 - inl1 + 1)  # initial condition
 
         self.d = 0.7 * self.D   # axon diameter
         self.L = 100 * self.D   # internodal length
@@ -223,7 +231,7 @@ class StimulusModel:
         self.leg = ['node #' + str(k) for k in self.inod]
 
 
-def write_ode(node_num, first_nl_node=-1, last_nl_node=-2):
+def write_ode(node_num, first_nl_node=None, last_nl_node=None):
     """
     'write_ode' writes the system of ODE including Frankenhaeuser and Huxley equations
 
@@ -242,10 +250,16 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-2):
 
     """
 
-    # index for nonlinear nodes: (Frankenhaeuser and Huxley equations)
-    ifh = range(first_nl_node, last_nl_node + 1)
-    # additional 4 equations for each nonlinear node
-    iextra = range(node_num, node_num + (last_nl_node - first_nl_node + 1) * 4)
+    if (first_nl_node is None) and (last_nl_node is None):
+        # index for nonlinear nodes: (Frankenhaeuser and Huxley equations)
+        ifh = []
+        # additional 4 equations for each nonlinear node
+        iextra = []
+    else:
+        # index for nonlinear nodes: (Frankenhaeuser and Huxley equations)
+        ifh = range(first_nl_node, last_nl_node + 1)
+        # additional 4 equations for each nonlinear node
+        iextra = range(node_num, node_num + (last_nl_node - first_nl_node + 1) * 4)
 
     # open files where ode system is defined
     fid = open('eqdiff.py', 'w')
@@ -278,7 +292,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-2):
     cnt = 1
     for k in range(node_num):
         # check if the node is nonlinear
-        if (k >= first_nl_node) & (k <= last_nl_node):
+        if (first_nl_node is not None) and (last_nl_node is not None) and (k >= first_nl_node) and (k <= last_nl_node):
             if k == 0:   # first node
                 fid.write('     1/Cm*(Ga*(       -  y[{}] +  y[{}]             -  ve(t,{}) + ve(t,{}))\n'.format(k,k+1,k,k+1))
                 fid.write('                -np.pi*d*l*((F*H*(y[{}]+Vr)/(1-np.exp((y[{}]+Vr)*H)))*((PNa*y[{}]*y[{}]**2 + Pp*y[{}]**2)*(Nao - Nai*np.exp((y[{}]+Vr)*H)) + PK*y[{}]**2*(Ko-Ki*np.exp((y[{}]+Vr)*H)))\n'.format(k, k, iextra[cnt * 4 - 3], iextra[cnt * 4 - 4], iextra[cnt * 4 - 1], k, iextra[cnt * 4 - 2], k))
@@ -301,7 +315,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-2):
             if k == 0:   # first node
                 fid.write('     1/Cm*(Ga*(       -  y[{}] +  y[{}] +           -  ve(t,{}) + ve(t,{}))   -Gm*y[{}]),\n'.format(k, k + 1, k, k + 1, k))
 
-            elif (k == node_num - 1) & (first_nl_node == -1) & (last_nl_node == -2):   # last node and zero nonlinear node
+            elif (k == node_num - 1) & (first_nl_node == None) & (last_nl_node == None):   # last node and zero nonlinear node
                 fid.write('     1/Cm*(Ga*(y[{}] -  y[{}]           + ve(t,{}) -  ve(t,{}))                -Gm*y[{}])]\n'.format(k-1, k , k-1, k, k))
 
             elif (k == node_num - 1):   # last node
@@ -311,7 +325,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-2):
                 fid.write('     1/Cm*(Ga*(y[{}] -  2*y[{}] +  y[{}] + ve(t,{}) -  2*ve(t,{}) + ve(t,{}))  -Gm*y[{}]),\n'.format(k - 1, k, k + 1, k-1 , k, k + 1, k))
 
     # write additional 4 equations for each nonlinear node
-    if (first_nl_node != -1) & (last_nl_node != -2):
+    if (first_nl_node is not None) and (last_nl_node is not None):
         fid.write('     # additional FH equations\n')
         cnt = 1
         for k in range(len(ifh)):
