@@ -223,7 +223,7 @@ class StimulusModel:
         self.leg = ['node #' + str(k) for k in self.inod]
 
 
-def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
+def write_ode(node_num, first_nl_node=-1, last_nl_node=-2):
     """
     'write_ode' writes the system of ODE including Frankenhaeuser and Huxley equations
 
@@ -301,7 +301,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
             if k == 0:   # first node
                 fid.write('     1/Cm*(Ga*(       -  y[{}] +  y[{}] +           -  ve(t,{}) + ve(t,{}))   -Gm*y[{}]),\n'.format(k, k + 1, k, k + 1, k))
 
-            elif (k == node_num - 1) & (first_nl_node == -1) & (last_nl_node == -1):   # last node and zero nonlinear node
+            elif (k == node_num - 1) & (first_nl_node == -1) & (last_nl_node == -2):   # last node and zero nonlinear node
                 fid.write('     1/Cm*(Ga*(y[{}] -  y[{}]           + ve(t,{}) -  ve(t,{}))                -Gm*y[{}])]\n'.format(k-1, k , k-1, k, k))
 
             elif (k == node_num - 1):   # last node
@@ -311,7 +311,7 @@ def write_ode(node_num, first_nl_node=-1, last_nl_node=-1):
                 fid.write('     1/Cm*(Ga*(y[{}] -  2*y[{}] +  y[{}] + ve(t,{}) -  2*ve(t,{}) + ve(t,{}))  -Gm*y[{}]),\n'.format(k - 1, k, k + 1, k-1 , k, k + 1, k))
 
     # write additional 4 equations for each nonlinear node
-    if (first_nl_node != -1) & (last_nl_node != -1):
+    if (first_nl_node != -1) & (last_nl_node != -2):
         fid.write('     # additional FH equations\n')
         cnt = 1
         for k in range(len(ifh)):
