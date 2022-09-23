@@ -217,7 +217,7 @@ class StimulusModel:
         elif self.kind.lower() == 'biph':
             # Electrical stimulation
             self.voltage_ext = lambda t, k: (axon.rhoe * self.magnitude) / (4 * np.pi) * ((t <= self.tp1) / self.r[k] - ((t > self.tp1) & (t <= self.tp)) / self.r[k])
-            self.waveform = lambda t: self.magnitude * ((t <= self.tp1) - ((t > self.tp1) & (t <= self.tp)))
+            self.waveform = lambda t:  self.magnitude * (t <= self.tp1) - self.magnitude * ((t > self.tp1) & (t <= self.tp))
             # plot variables
             self.inod = np.arange((axon.node_num - 1) / 2, (axon.node_num - 1) / 2 + 6, dtype=int)
 
@@ -260,7 +260,6 @@ def write_ode(node_num, first_nl_node=None, last_nl_node=None):
         ifh = range(first_nl_node, last_nl_node + 1)
         # additional 4 equations for each nonlinear node
         iextra = range(node_num, node_num + (last_nl_node - first_nl_node + 1) * 4)
-
     # open files where ode system is defined
     fid = open('eqdiff.py', 'w')
 
