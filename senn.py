@@ -255,6 +255,9 @@ def write_ode(node_num, first_nl_node=None, last_nl_node=None):
         ifh = []
         # additional 4 equations for each nonlinear node
         iextra = []
+    elif first_nl_node == last_nl_node:
+        ifh = [first_nl_node * 1]
+        iextra = range(node_num, node_num + 4)
     else:
         # index for nonlinear nodes: (Frankenhaeuser and Huxley equations)
         ifh = range(first_nl_node, last_nl_node + 1)
