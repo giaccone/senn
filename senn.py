@@ -346,7 +346,7 @@ def write_ode(node_num, first_nl_node=None, last_nl_node=None):
     fid.close()
 
 
-def find_sub_supra(axon, stimulus, eqdiff, sub_value=0, sup_value=0.1e-3):
+def find_sub_supra(axon, stimulus, eqdiff, sub_value=0, sup_value=0.1e-3, nsteps=2000):
     """
     'find_sub_supra' computes boundary values for the bisection method (used to identify the threeshold)
 
@@ -357,6 +357,7 @@ def find_sub_supra(axon, stimulus, eqdiff, sub_value=0, sup_value=0.1e-3):
     eqdiff (function): function that defines the ODE system
     sub_value (float): initial guess of sub-threshold value (default is 0)
     sup_value (float): initial guess of supra-threshold value (default is 0.1e-3)
+    nsteps (int): maximum number of steps allowed during one call to the solver dopri5
 
     Returns
     -------
@@ -386,7 +387,7 @@ def find_sub_supra(axon, stimulus, eqdiff, sub_value=0, sup_value=0.1e-3):
         time = []
         sol = []
         # define integrator
-        r = ode(eqdiff).set_integrator('dopri5')
+        r = ode(eqdiff).set_integrator('dopri5', nsteps=nsteps)
         # set initial conditions
         r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, stimulus.voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
@@ -409,7 +410,7 @@ def find_sub_supra(axon, stimulus, eqdiff, sub_value=0, sup_value=0.1e-3):
     return sub_value, sup_value
 
 
-def find_threshold(axon, stimulus, eqdiff, sub_value, sup_value, toll=0.5):
+def find_threshold(axon, stimulus, eqdiff, sub_value, sup_value, toll=0.5, nsteps=2000):
     """
     'find_threshold' computes the threshold up to a given tolerance.
 
@@ -421,6 +422,7 @@ def find_threshold(axon, stimulus, eqdiff, sub_value, sup_value, toll=0.5):
     sub_value (float): sub-threshold value
     sup_value (float): supra-threshold value
     toll (float): tolerance to identify the threshold (default is 0.5 %)
+    nsteps (int): maximum number of steps allowed during one call to the solver dopri5
 
     Returns
     -------
@@ -453,7 +455,7 @@ def find_threshold(axon, stimulus, eqdiff, sub_value, sup_value, toll=0.5):
         time = []
         sol = []
         # define integrator
-        r = ode(eqdiff).set_integrator('dopri5')
+        r = ode(eqdiff).set_integrator('dopri5', nsteps=nsteps)
         # set initial conditions
         r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, stimulus.voltage_ext, axon.d, axon.l, axon.Vr)
         # store solution at each iteration step
@@ -488,7 +490,7 @@ def find_threshold(axon, stimulus, eqdiff, sub_value, sup_value, toll=0.5):
     return old_value, stimulus
 
 
-def evaluate_senn(axon, stimulus, eqdiff):
+def evaluate_senn(axon, stimulus, eqdiff, nsteps=2000):
     """
     'evaluate_senn' computes the solution of the SENN model for a given stimulus
 
@@ -497,6 +499,7 @@ def evaluate_senn(axon, stimulus, eqdiff):
     axon (AxonModel): axon model
     stimulus (StimulusModel): stimulus model
     eqdiff (function): function that defines the ODE system
+    nsteps (int): maximum number of steps allowed during one call to the solver dopri5
 
     Returns
     -------
@@ -513,7 +516,7 @@ def evaluate_senn(axon, stimulus, eqdiff):
     time = []
     sol = []
     # define integrator
-    r = ode(eqdiff).set_integrator('dopri5')
+    r = ode(eqdiff).set_integrator('dopri5', nsteps=nsteps)
     # set initial conditions
     r.set_initial_value(axon.icond, 0).set_f_params(axon.Ga, axon.Gm, axon.Cm, stimulus.voltage_ext, axon.d, axon.l, axon.Vr)
     # store solution at each iteration step
