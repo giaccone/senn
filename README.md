@@ -48,7 +48,7 @@ It is necessary a small difference (0.681 A vs 0.68 A) in the magnitude of the s
 
 
 <p align="center">
-<img src="./benchmark/monoph_fortranSENN_comparison.png" width="300">
+<img src="./benchmark/monoph_fortranSENN_comparison.png" width="500">
 </p>
 <p align="center">
 <b>Figure 1</b>: Python SENN (lines) vs Fortran SENN (markers)
@@ -67,7 +67,7 @@ Reference [1] does not provide details about the complete setting of the SENN mo
 Transmembrane voltages at nodes from 25 to 28 are available in [1], data are digitalized by means of [PyDigitizer](https://github.com/giaccone/PyDigitizer) and compared with the results obtained by means of the Python-SENN model. The comparison is shown in Figure 2.
 
 <p align="center">
-<img src="./benchmark/monoph_literature_comparison.png" width="300">
+<img src="./benchmark/monoph_literature_comparison.png" width="500">
 </p>
 <p align="center">
 <b>Figure 2</b>: Python SENN (lines) vs Literature (markers)
@@ -111,7 +111,7 @@ The transmembrane voltages at the nodes where the action potential is initiated 
 It is necessary a small difference (9.105 mA vs 9.1 mA) in the magnitude of the stimulus for a perfect overlap the curve. Likely for some difference in the solution of the difference equations of the model. Results are shown in Figure 3.
 
 <p align="center">
-<img src="./benchmark/sine_fortranSENN_comparison.png" width="300">
+<img src="./benchmark/sine_fortranSENN_comparison.png" width="500">
 </p>
 <p align="center">
 <b>Figure 3</b>: Python SENN (lines) vs Fortran SENN (markers)
@@ -131,7 +131,7 @@ Only the transmembrane voltages at nodes 25 is available in [1], data are digita
 
 
 <p align="center">
-<img src="./benchmark/sine_literature_comparison.png" width="300">
+<img src="./benchmark/sine_literature_comparison.png" width="500">
 </p>
 <p align="center">
 <b>Figure 4</b>: Python SENN (lines) vs Literature (markers)
