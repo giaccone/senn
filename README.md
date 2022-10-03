@@ -1,6 +1,8 @@
 # SENN
 
-This repository includes a python implementation of the Spatially Extended Nonlinear Node (SENN) model [1,2,3]. At the time of writing the original SENN model is provided as a Fortran code [4]. This project is not a one-to-one conversion of the Frotran code to a Python code. The Python SENN model is based mainly on references [1,2,3] and it is developed from scratch. 
+This repository includes a python implementation of the Spatially Extended Nonlinear Node (SENN) model [1,2,3]. At the time of writing the original SENN model is provided as a Fortran code [4]. This project is not a one-to-one conversion of the Frotran code to a Python code. The Python SENN model is based mainly on references [1,2,3] and it is developed from scratch.
+
+All results presented below, can be reproduced with the python programs in the folder `benckmark` included in this repository.
 
 ## 1. Validation of the Python-SENN model
 
