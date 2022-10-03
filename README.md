@@ -44,7 +44,7 @@ The transmembrane voltages at the nodes where the action potential is initiated 
     * Python SENN: 0.681 mA
     * Fortran SENN: 0.68 mA
 
-It is necessary a small difference (0.681 A vs 0.68 A) in the magnitude of the stimulus for a perfect overlap the curve. Likely for some difference in the solution of the difference equations of the model. Results are shown in Figure 1.
+It is necessary a small difference (0.681 A vs 0.68 A) in the magnitude of the stimulus for a perfect overlap the curves. Likely for some difference in the solution of the differential equations of the model. Results are shown in Figure 1.
 
 
 <p align="center">
@@ -108,7 +108,7 @@ The transmembrane voltages at the nodes where the action potential is initiated 
     * Python SENN: 9.105 mA
     * Fortran SENN: 9.1 mA
 
-It is necessary a small difference (9.105 mA vs 9.1 mA) in the magnitude of the stimulus for a perfect overlap the curve. Likely for some difference in the solution of the difference equations of the model. Results are shown in Figure 3.
+It is necessary a small difference (9.105 mA vs 9.1 mA) in the magnitude of the stimulus for a perfect overlap the curves. Likely for some difference in the solution of the differential equations of the model. Results are shown in Figure 3.
 
 <p align="center">
 <img src="./benchmark/sine_fortranSENN_comparison.png" width="500">
