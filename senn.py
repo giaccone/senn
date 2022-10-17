@@ -231,7 +231,7 @@ class StimulusModel:
         self.leg = ['node #' + str(k) for k in self.inod]
 
 
-def write_ode(node_num, first_nl_node=None, last_nl_node=None):
+def write_ode(node_num, first_nl_node=None, last_nl_node=None, PNa=8*1e-3*1e-2, PK=1.2*1e-3*1e-2, Pp = 0.54*1e-3*1e-2, gl = 30.3*1e1, Vl=0.026e-3, Nao=114.5, Nai=13.7, Ko=2.5, Ki=120, F=96514, R=8.3144, T=295.18):
     """
     'write_ode' writes the system of ODE including Frankenhaeuser and Huxley equations
 
@@ -267,24 +267,26 @@ def write_ode(node_num, first_nl_node=None, last_nl_node=None):
     fid = open('eqdiff.py', 'w')
 
     # import modules
-    fid.write("import numpy as np\n\n\n")
+    fid.write("import numpy as np\n")
+    fid.write("import warnings\n")
+    fid.write("warnings.filterwarnings('ignore')\n\n\n")
 
     # define constant
     fid.write('def eqdiff(t, y, Ga, Gm, Cm, ve, d, l, Vr):\n')
     fid.write('\n')
     fid.write('    # Parameters\n')
-    fid.write('    PNa = 8*1e-3*1e-2 # (m/s)\n')
-    fid.write('    PK = 1.2*1e-3*1e-2 # (m/s)\n')
-    fid.write('    Pp = 0.54*1e-3*1e-2 # (m/s)\n')
-    fid.write('    gl = 30.3*1e-3/1e-4 # (1/ohm/m^2)\n')
-    fid.write('    Vl = 0.026e-3 # (V)\n')
-    fid.write('    Nao = 114.5 # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n')
-    fid.write('    Nai = 13.7 # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n')
-    fid.write('    Ko = 2.5 # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n')
-    fid.write('    Ki = 120 # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n')
-    fid.write('    F = 96514 # (C/mol)\n')
-    fid.write('    R = 8.3144 # (J/K/mol)\n')
-    fid.write('    T = 295.18 # (K)\n')
+    fid.write('    PNa = {:3} # (m/s)\n'.format(PNa))
+    fid.write('    PK = {:3} # (m/s)\n'.format(PK))
+    fid.write('    Pp = {:3} # (m/s)\n'.format(Pp))
+    fid.write('    gl = {:3} # (1/ohm/m^2)\n'.format(gl))
+    fid.write('    Vl = {:3} # (V)\n'.format(Vl))
+    fid.write('    Nao = {:3} # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n'.format(Nao))
+    fid.write('    Nai = {:3} # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n'.format(Nai))
+    fid.write('    Ko = {:3} # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n'.format(Ko))
+    fid.write('    Ki = {:3} # (mM) = (m mol /lit) = (m mol /dm^3) = (mol/m^3)\n'.format(Ki))
+    fid.write('    F = {:3} # (C/mol)\n'.format(F))
+    fid.write('    R = {:3} # (J/K/mol)\n'.format(R))
+    fid.write('    T = {:3} # (K)\n'.format(T))
     fid.write('    # additional parameters\n')
     fid.write('    H = F/R/T\n\n')
 
@@ -298,17 +300,17 @@ def write_ode(node_num, first_nl_node=None, last_nl_node=None):
             if k == 0:   # first node
                 fid.write('     1/Cm*(Ga*(       -  y[{}] +  y[{}]             -  ve(t,{}) + ve(t,{}))\n'.format(k,k+1,k,k+1))
                 fid.write('                -np.pi*d*l*((F*H*(y[{}]+Vr)/(1-np.exp((y[{}]+Vr)*H)))*((PNa*y[{}]*y[{}]**2 + Pp*y[{}]**2)*(Nao - Nai*np.exp((y[{}]+Vr)*H)) + PK*y[{}]**2*(Ko-Ki*np.exp((y[{}]+Vr)*H)))\n'.format(k, k, iextra[cnt * 4 - 3], iextra[cnt * 4 - 4], iextra[cnt * 4 - 1], k, iextra[cnt * 4 - 2], k))
-                fid.write('                + gl*(y[{}]+Vl))),\n'.format(k))
+                fid.write('                + gl*(y[{}]-Vl))),\n'.format(k))
 
             elif (k == node_num - 1):    # last node node
                 fid.write('     1/Cm*(Ga*( y[{}] -  y[{}]           + ve(t,{}) -  ve(t,{}))\n'.format(k-1,k,k-1,k))
                 fid.write('                -np.pi*d*l*((F*H*(y[{}]+Vr)/(1-np.exp((y[{}]+Vr)*H)))*((PNa*y[{}]*y[{}]**2 + Pp*y[{}]**2)*(Nao - Nai*np.exp((y[{}]+Vr)*H)) + PK*y[{}]**2*(Ko-Ki*np.exp((y[{}]+Vr)*H)))\n'.format(k, k, iextra[cnt * 4 - 3], iextra[cnt * 4 - 4], iextra[cnt * 4 - 1], k, iextra[cnt * 4 - 2], k))
-                fid.write('                + gl*(y[{}]+Vl))),\n'.format(k))
+                fid.write('                + gl*(y[{}]-Vl))),\n'.format(k))
 
             else:   # inner node
                 fid.write('     1/Cm*(Ga*( y[{}] -  2*y[{}] +  y[{}] + ve(t,{}) -  2*ve(t,{}) + ve(t,{}))\n'.format(k-1,k,k+1,k-1,k,k+1))
                 fid.write('                -np.pi*d*l*((F*H*(y[{}]+Vr)/(1-np.exp((y[{}]+Vr)*H)))*((PNa*y[{}]*y[{}]**2 + Pp*y[{}]**2)*(Nao - Nai*np.exp((y[{}]+Vr)*H)) + PK*y[{}]**2*(Ko-Ki*np.exp((y[{}]+Vr)*H)))\n'.format(k, k, iextra[cnt * 4 - 3], iextra[cnt * 4 - 4], iextra[cnt * 4 - 1], k, iextra[cnt * 4 - 2], k))
-                fid.write('                + gl*(y[{}]+Vl))),\n'.format(k))
+                fid.write('                + gl*(y[{}]-Vl))),\n'.format(k))
 
             # update counter
             cnt += 1
