@@ -10,7 +10,7 @@ d = 0.7*D           # axon diamater
 L = 100 * D         # internodal length
 rhoi = 110*1e-2     # axoplasm resistivity
 rhoe = 300 * 1e-2   # external medium resistivity
-gm = 30.4*10        # membrane conductance per unit length
+gm = 30.365*10        # membrane conductance per unit length
 l = 2.5e-6          # nodal gap width
 cm = 2e-2           # membrane conductance per unit area
 Vr = -70e-3         # rest potential
@@ -21,11 +21,16 @@ inl2 = 50       # last non-linear node
 axon = AxonModel(D=D, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr, node_num=node_num, inl1=inl1, inl2=inl2)
 
 # write & import equation
-write_ode(axon.node_num, axon.inl1, axon.inl2)
+T_senn = 295.16            # value used in Fortran SENN
+F_senn = 96487             # value used in Fortran SENN
+Nai_senn = 13.74           # value used in Fortran SENN
+Vl_senn = 0.0260430075e-3  # value used in Fortran SENN
+
+write_ode(axon.node_num, axon.inl1, axon.inl2, T=T_senn, F=F_senn, Nai=Nai_senn, Vl=Vl_senn)
 from eqdiff import eqdiff
 
 # define stimulus
-magnitude = -9.105e-3
+magnitude = -9.1e-3
 tp = 20e-6
 freq = 1 / tp
 tend = 25 * tp
@@ -34,7 +39,7 @@ ktime = 1e6
 umes_time = "($\mu$s)"
 
 # one shot simulation
-t, sol = evaluate_senn(axon, stimulus, eqdiff)
+t, sol = evaluate_senn(axon, stimulus, eqdiff, nsteps=3000)
 
 # analyze output
 analyze_solution(t, sol, axon, stimulus)

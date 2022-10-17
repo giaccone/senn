@@ -1,4 +1,4 @@
-# SENN
+# SENN (Spatially Extended Nonlinear Node)
 
 This repository includes a python implementation of the Spatially Extended Nonlinear Node (SENN) model [1,2,3]. At the time of writing the original SENN model is provided as a Fortran code [4]. This project is not a one-to-one conversion of the Frotran code to a Python code. The Python SENN model is based mainly on references [1,2,3] and it is developed from scratch.
 
@@ -22,16 +22,16 @@ Computations are performed by varying the duration of the pulse. Results are sum
 
 | Duration (us) | Python SENN (mA) | Fortran SENN (mA) | deviation (%) |
 |---------------|------------------|-------------------|---------------|
-| 50            | 0.996875         | 0.987500          | 0.95          |
-| 100           | 0.679004         | 0.679700          | 0.10          |
+| 50            | 0.993750         | 0.987500          | 0.63          |
+| 100           | 0.678320         | 0.679700          | 0.20          |
 | 150           | 0.567578         | 0.570300          | 0.48          |
-| 200           | 0.509473         | 0.507800          | 0.33          |
-| 250           | 0.474609         | 0.472700          | 0.40          |
-| 300           | 0.448633         | 0.449200          | 0.13          |
+| 200           | 0.508789         | 0.507800          | 0.19          |
+| 250           | 0.471704         | 0.472700          | 0.21          |
+| 300           | 0.447266         | 0.449200          | 0.43          |
 | 350           | 0.430859         | 0.431300          | 0.10          |
-| 400           | 0.419922         | 0.418000          | 0.46          |
-| 450           | 0.408984         | 0.406200          | 0.69          |
-| 500           | 0.399414         | 0.398400          | 0.25          |
+| 400           | 0.416504         | 0.418000          | 0.36          |
+| 450           | 0.406079         | 0.406200          | 0.03          |
+| 500           | 0.398047         | 0.398400          | 0.09
 
 #### 1.1.2 Computation of the transmembrane voltage, comparison with Fortran SENN model
 
@@ -42,11 +42,7 @@ The transmembrane voltages at the nodes where the action potential is initiated 
     * node 26
     * node 27
 * duration: 100 us
-* magnitude:
-    * Python SENN: 0.681 mA
-    * Fortran SENN: 0.68 mA
-
-It is necessary a small difference (0.681 A vs 0.68 A) in the magnitude of the stimulus for a perfect overlap the curves. Likely for some difference in the solution of the differential equations of the model. Results are shown in Figure 1.
+* magnitude:  0.68 mA
 
 
 <p align="center">
@@ -62,9 +58,9 @@ The transmembrane voltages at the nodes where the action potential is initiated 
 
 Reference [1] does not provide details about the complete setting of the SENN models, therefore a configuration that best fits the literature results have been identified:
 * 51 nodes
-* non-linear nodes from 25 to 32
+* non-linear nodes from 25 to 31
 * duration: 100 us
-* magnitude: 0.682 mA
+* magnitude: 0.681 mA
 
 Transmembrane voltages at nodes from 25 to 28 are available in [1], data are digitalized by means of [PyDigitizer](https://github.com/giaccone/PyDigitizer) and compared with the results obtained by means of the Python-SENN model. The comparison is shown in Figure 2.
 
@@ -92,8 +88,8 @@ Computations are performed by varying the frequency of sinusoidal pulse. Results
 | 50.000          | 20            | 9.075000         | 9.125000          | 0.55          |
 | 25.000          | 40            | 3.925000         | 3.906200          | 0.48          |
 | 16.667          | 60            | 2.575000         | 2.593800          | 0.72          |
-| 12.500          | 80            | 1.968750         | 1.953100          | 0.80          |
-| 10.000          | 100           | 1.621875         | 1.609400          | 0.78          |
+| 12.500          | 80            | 1.962500         | 1.953100          | 0.48          |
+| 10.000          | 100           | 1.618750         | 1.609400          | 0.58
 
 
 #### 1.2.2 Computation of the transmembrane voltage
@@ -106,11 +102,7 @@ The transmembrane voltages at the nodes where the action potential is initiated 
     * node 27
 * frequency: 50 kHz
 * duration: 20 us
-* magnitude:
-    * Python SENN: 9.105 mA
-    * Fortran SENN: 9.1 mA
-
-It is necessary a small difference (9.105 mA vs 9.1 mA) in the magnitude of the stimulus for a perfect overlap the curves. Likely for some difference in the solution of the differential equations of the model. Results are shown in Figure 3.
+* magnitude: 9.1 mA
 
 <p align="center">
 <img src="./benchmark/sine_fortranSENN_comparison.png" width="500">
@@ -125,9 +117,9 @@ The transmembrane voltages at the nodes where the action potential is initiated 
 
 Reference [1] does not provide details about the complete setting of the SENN models, therefore a configuration that best fits the literature results have been identified:
 * 51 nodes
-* non-linear nodes from 25 to 32
+* non-linear nodes from 25 to 31
 * duration: 100 us
-* magnitude: 9.105 mA
+* magnitude: 9.1 mA
 
 Only the transmembrane voltages at nodes 25 is available in [1], data are digitalized by means of [PyDigitizer](https://github.com/giaccone/PyDigitizer) and compared with the results obtained by means of the Python-SENN model. The comparison is shown in Figure 4.
 

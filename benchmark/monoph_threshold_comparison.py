@@ -23,7 +23,12 @@ inl2 = 50             # last non-linear node
 axon = AxonModel(D=D, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr, node_num=node_num, inl1=inl1, inl2=inl2)
 
 # write & import equation
-write_ode(axon.node_num, axon.inl1, axon.inl2)
+T_senn = 295.16            # value used in Fortran SENN
+F_senn = 96487             # value used in Fortran SENN
+Nai_senn = 13.74           # value used in Fortran SENN
+Vl_senn = 0.0260430075e-3  # value used in Fortran SENN
+
+write_ode(axon.node_num, axon.inl1, axon.inl2, T=T_senn, F=F_senn, Nai=Nai_senn, Vl=Vl_senn)
 from eqdiff import eqdiff
 
 # define stimulus
