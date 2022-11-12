@@ -20,7 +20,7 @@ node_num = 51         # total number of node
 inl1 = 0              # first non-linear node
 inl2 = 50             # last non-linear node
 
-axon = AxonModel(D=D, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr, node_num=node_num, inl1=inl1, inl2=inl2)
+axon = AxonModel(D=D, d=d, L=L, rhoi=rhoi, rhoe=rhoe, gm=gm, l=l, cm=cm, Vr=Vr, node_num=node_num, inl1=inl1, inl2=inl2)
 
 # write & import equation
 T_senn = 295.16            # value used in Fortran SENN

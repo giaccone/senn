@@ -67,7 +67,7 @@ class AxonModel:
                 msg += "\t{}\t\t{} {}\n".format(attr, value, umes[attr])
         return msg
 
-    def __init__(self, D=20e-6, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3, node_num=21, inl1=0, inl2=20):
+    def __init__(self, D=20e-6, d=None, L=None, rhoi=110e-2, rhoe=300e-2, gm=304, l=2.5e-6, cm=2e-2, Vr=-70e-3, node_num=21, inl1=0, inl2=20):
         """
 
         Parameters
@@ -103,8 +103,14 @@ class AxonModel:
         else:
             self.icond = [0] * node_num + [0.0005, 0.8249, 0.0268, 0.0049] * (inl2 - inl1 + 1)  # initial condition
 
-        self.d = 0.7 * self.D   # axon diameter
-        self.L = 100 * self.D   # internodal length
+        if d is None:
+            self.d = 0.7 * self.D   # axon diameter
+        else:
+            self.d = d
+        if L is None:
+            self.L = 100 * self.D   # internodal length
+        else:
+            self.L = L
 
         self.Ga = np.pi * self.d ** 2 / (4 * self.rhoi * self.L)
         self.Gm = self.gm * np.pi * self.d * self.l
