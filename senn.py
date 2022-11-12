@@ -73,6 +73,8 @@ class AxonModel:
         Parameters
         ----------
         D (float): fiber diameter
+        d (float): axon diamater
+        L (float): internodal length
         rhoi (float): axoplasm resistivity
         rhoe (float): external medium resistivity
         gm (float): membrane conductance per unit area
